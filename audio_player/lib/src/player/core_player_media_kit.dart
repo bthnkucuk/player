@@ -211,17 +211,21 @@ class CorePlayerMediaKit extends CorePlayer {
     // [CorePlayerConfiguration.libmpvOptions]) as soon as the [Player] exists.
     // Async cache-dir resolution happens inside; the ctor stays sync.
     // See mpv#6537 for the `+fastseek` rationale.
-    unawaited(_applyLibmpvOptions());
+    //
+    // Tracked via [_trackPending] so [dispose] can drain this before tearing
+    // down the native player — a stale `setProperty` against a disposed
+    // [Player] is the failure mode leak_tracker flagged in tuSpeech.
+    _trackPending(_applyLibmpvOptions());
     if (audioHandler != null) {
       // Constructor cannot be async; fire-and-forget the attach. The session
       // activation inside `attach` is best-effort — if it fails, surface
       // the error through the existing player error stream. Attach to the
       // SCOPE the player was constructed with (via `audioHandler`), not the
       // default scope — this is how multi-scope usage works.
-      unawaited(
-        audioHandler!.attach(this).catchError((Object e, StackTrace s) {
+      _trackPending(
+        audioHandler!.attach(this).then<void>((_) {}).catchError((Object e, StackTrace s) {
+          if (_disposed) return;
           _playerErrorSubject.add('attachPlayer failed: $e');
-          return false;
         }),
       );
     }
@@ -339,32 +343,37 @@ class CorePlayerMediaKit extends CorePlayer {
     _audioHandlerEventSubscription = audioHandler?.eventStream.listen((event) {
       // Each scope has its own eventStream; this player only reacts when
       // it's the current player in its own scope.
+      if (_disposed) return;
       if (!(audioHandler?.isCurrent(this) ?? false)) return;
 
+      // System-control fire-and-forget dispatches are tracked through
+      // [_trackPending] so [dispose]'s drain catches any in-flight reaction
+      // to a lock-screen / interruption event that landed in the same
+      // microtask as the dispose call.
       switch (event) {
         case CoreAudioHandlerPlayEvent():
-          unawaited(play());
+          _trackPending(_swallowDisposed(play()));
         case CoreAudioHandlerPauseEvent():
-          unawaited(pause());
+          _trackPending(_swallowDisposed(pause()));
         case CoreAudioHandlerStopEvent():
-          unawaited(stop());
+          _trackPending(_swallowDisposed(stop()));
         case CoreAudioHandlerTaskRemovedEvent():
           // System tore down our task — react the same way as a stop. The
           // handler-level onTaskRemoved() already clears attached players
           // and emits stop state; this arm is the per-player reaction.
-          unawaited(stop());
+          _trackPending(_swallowDisposed(stop()));
         case CoreAudioHandlerSeekEvent():
-          unawaited(seek(event.position));
+          _trackPending(_swallowDisposed(seek(event.position)));
         case CoreAudioHandlerInterruptionBeginEvent():
           // Other audio app / phone call grabbed focus — pause so we don't
           // mix audio. The bridge remembered we were playing, so a later
           // interruption-end with shouldResume=true will play() again.
-          if (isPlaying) unawaited(pause());
+          if (isPlaying) _trackPending(_swallowDisposed(pause()));
         case CoreAudioHandlerInterruptionEndEvent(:final shouldResume):
-          if (shouldResume) unawaited(play());
+          if (shouldResume) _trackPending(_swallowDisposed(play()));
         case CoreAudioHandlerBecomingNoisyEvent():
           // Headphones unplugged — avoid blasting through speakers.
-          if (isPlaying) unawaited(pause());
+          if (isPlaying) _trackPending(_swallowDisposed(pause()));
         case CoreAudioHandlerAppResumeEvent():
           // Generic app-resume signal. The bridge already synthesizes
           // [CoreAudioHandlerInterruptionEndEvent(shouldResume: true)] when it
@@ -377,13 +386,13 @@ class CorePlayerMediaKit extends CorePlayer {
           // (e.g. out-of-bounds) are visible via [errorStream]; we swallow
           // the thrown failure here to avoid an uncaught async error from
           // the system-control surface.
-          unawaited(
+          _trackPending(
             skipToNext().catchError((Object _) {
               // QueueOutOfBoundsFailure already emitted on errorStream.
             }),
           );
         case CoreAudioHandlerSkipToPreviousEvent():
-          unawaited(
+          _trackPending(
             skipToPrevious().catchError((Object _) {
               // ditto
             }),
@@ -391,13 +400,37 @@ class CorePlayerMediaKit extends CorePlayer {
       }
     });
     if (audioSource != null && autoLoad) {
-      unawaited(
+      _trackPending(
         load(audioSource).catchError((Object e, StackTrace s) {
+          if (_disposed) return;
           _playerErrorSubject.add(e.toString());
         }),
       );
     }
     CorePlayer.observer?.onCreate(this);
+  }
+
+  /// Pending fire-and-forget operations (constructor side-effects, lock-screen
+  /// event reactions, autoLoad). [dispose] drains this set BEFORE cancelling
+  /// subscriptions / closing subjects so a setProperty / attach landing
+  /// post-dispose does not run against a torn-down player.
+  final Set<Future<void>> _pendingOps = <Future<void>>{};
+
+  void _trackPending(Future<void> op) {
+    _pendingOps.add(op);
+    op.whenComplete(() => _pendingOps.remove(op));
+  }
+
+  /// Wrap a system-control fire-and-forget so it absorbs the
+  /// [PlayerDisposedFailure] thrown by every public mutator after [dispose]
+  /// runs. Without this swallow, a lock-screen event arriving in the same
+  /// microtask as [dispose] surfaces as an uncaught zone error.
+  Future<void> _swallowDisposed(Future<void> op) {
+    return op.catchError((Object e) {
+      if (e is PlayerDisposedFailure) return;
+      // Anything else propagates to the zone error handler as before.
+      throw e;
+    });
   }
 
   /// Build the effective libmpv option map (defaults overlaid with
@@ -407,6 +440,7 @@ class CorePlayerMediaKit extends CorePlayer {
   /// `path_provider.getApplicationCacheDirectory()`; failures are swallowed
   /// and logged via [log] so a missing cache dir never blocks playback.
   Future<void> _applyLibmpvOptions() async {
+    if (_disposed) return;
     final overrides = _configuration.libmpvOptions ?? const <String, String>{};
     final effective = <String, String>{};
     // Defaults first, then consumer overrides — empty-string values from
@@ -426,22 +460,30 @@ class CorePlayerMediaKit extends CorePlayer {
     if (!overrides.containsKey('cache-dir')) {
       try {
         final base = await getApplicationCacheDirectory();
+        // Re-check disposal: getApplicationCacheDirectory crosses the
+        // platform channel and can be slow on a cold start; dispose may have
+        // landed while we awaited. Pushing setProperty after that point
+        // races with player.dispose() (leak_tracker outage 2024-09).
+        if (_disposed) return;
         final dir = Directory('${base.path}/libmpv-cache');
         if (!dir.existsSync()) {
           dir.createSync(recursive: true);
         }
         effective['cache-dir'] = dir.path;
       } on Object catch (e, s) {
+        if (_disposed) return;
         log('libmpv cache-dir resolution skipped', error: e, stackTrace: s);
       }
     } else if (overrides['cache-dir']!.isNotEmpty) {
       effective['cache-dir'] = overrides['cache-dir']!;
     }
 
+    if (_disposed) return;
     if (effective.isEmpty) return;
     try {
       await _libmpvOptionsApplier(player, effective);
     } on Object catch (e, s) {
+      if (_disposed) return;
       log('libmpv options applier failed', error: e, stackTrace: s);
     }
   }
@@ -959,7 +1001,24 @@ class CorePlayerMediaKit extends CorePlayer {
   @override
   Future<void> dispose() async {
     if (_disposed) return;
+    // Set _disposed FIRST (before any await) so every fire-and-forget path
+    // observes disposal: _applyLibmpvOptions short-circuits after its awaits,
+    // event-handler reactions skip dispatch, and the public mutators throw
+    // PlayerDisposedFailure. Without this ordering, a setProperty / attach
+    // landing during the drain below races with player.dispose().
     _disposed = true;
+
+    // 0. Drain in-flight fire-and-forget operations BEFORE we cancel
+    //    subscriptions or tear down the native player. Errors are swallowed:
+    //    we're on the disposal path, the operations have already had their
+    //    chance to surface failures via the public error stream.
+    if (_pendingOps.isNotEmpty) {
+      final pending = _pendingOps.toList(growable: false);
+      await Future.wait(
+        pending.map((f) => f.catchError((Object _) {})),
+        eagerError: false,
+      );
+    }
 
     // 1. Cancel ALL StreamSubscriptions first. This breaks the bridge between
     //    native media_kit streams and our local BehaviorSubjects, so anything
