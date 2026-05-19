@@ -69,19 +69,15 @@ void _wire(
   when(() => mockState.rate).thenReturn(1.0);
   when(() => mockState.volume).thenReturn(100.0);
 
-  Playlist? last;
   when(() => mockPlayer.open(any(), play: any(named: 'play'))).thenAnswer((inv) async {
     final p = inv.positionalArguments[0];
     if (p is Playlist) {
-      last = p;
       h.playlist.add(p);
     }
   });
   when(() => mockPlayer.play()).thenAnswer((_) async {});
   when(() => mockPlayer.pause()).thenAnswer((_) async {});
-  when(() => mockPlayer.stop()).thenAnswer((_) async {
-    last = null;
-  });
+  when(() => mockPlayer.stop()).thenAnswer((_) async {});
   when(() => mockPlayer.seek(any())).thenAnswer((_) async {});
   when(() => mockPlayer.setRate(any())).thenAnswer((_) async {});
   when(() => mockPlayer.setVolume(any())).thenAnswer((_) async {});
