@@ -89,123 +89,121 @@ class _ObserverDemoState extends State<ObserverDemo> {
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
           children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Text(
-                    'Each button below fires a different CorePlayerObserver hook. Watch the green log panel.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    SampleTracks.scienceFridayEpisode.title,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: <Widget>[
-                      FilledButton(
-                        onPressed: () => _player.loadAndPlay(
-                          SampleTracks.scienceFridayEpisode,
-                        ),
-                        child: const Text('loadAndPlay → onLoad + onPlay'),
-                      ),
-                      FilledButton.tonal(
-                        onPressed: _triggerError,
-                        child: const Text('Trigger error → onError'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // Real seek bar — drag to fire onSeek with arbitrary positions.
-                  StreamBuilder<Duration>(
-                    stream: _player.positionStream,
-                    initialData: _player.position,
-                    builder:
-                        (
-                          BuildContext context,
-                          AsyncSnapshot<Duration> posSnap,
-                        ) {
-                          return StreamBuilder<Duration>(
-                            stream: _player.durationStream,
-                            initialData: _player.duration,
-                            builder:
-                                (
-                                  BuildContext context,
-                                  AsyncSnapshot<Duration> durSnap,
-                                ) {
-                                  return StreamBuilder<Duration>(
-                                    stream: _player.bufferStream,
-                                    initialData: _player.buffer,
-                                    builder:
-                                        (
-                                          BuildContext context,
-                                          AsyncSnapshot<Duration> bufSnap,
-                                        ) {
-                                          return SeekBar(
-                                            position:
-                                                posSnap.data ?? Duration.zero,
-                                            duration:
-                                                durSnap.data ?? Duration.zero,
-                                            bufferedPosition:
-                                                bufSnap.data ?? Duration.zero,
-                                            onSeek: (Duration target) =>
-                                                _player.seek(target),
-                                          );
-                                        },
-                                  );
-                                },
-                          );
-                        },
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Drag the slider above → onSeek',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 8),
-                  StreamBuilder<CorePlayerState>(
-                    stream: _player.playerStateStream,
-                    initialData: _player.playerState,
-                    builder:
-                        (
-                          BuildContext context,
-                          AsyncSnapshot<CorePlayerState> stateSnap,
-                        ) {
-                          return StreamBuilder<bool>(
-                            stream: _player.playingStream,
-                            initialData: _player.isPlaying,
-                            builder:
-                                (
-                                  BuildContext context,
-                                  AsyncSnapshot<bool> playingSnap,
-                                ) {
-                                  return PlayPauseStopButtons(
-                                    state: stateSnap.data ?? CorePlayerState.idle,
-                                    isPlaying: playingSnap.data ?? false,
-                                    onPlay: () => _player.play(),
-                                    onPause: () => _player.pause(),
-                                    onStop: () => _player.stop(),
-                                  );
-                                },
-                          );
-                        },
-                  ),
-                  Text(
-                    'Play / Pause / Stop → onPlay / onPause / onStop + onStateChange',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
+            Text(
+              'Each button below fires a different CorePlayerObserver hook. Watch the green log panel.',
+              style: Theme.of(context).textTheme.bodySmall,
             ),
+            const SizedBox(height: 12),
+            Text(
+              SampleTracks.scienceFridayEpisode.title,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                FilledButton(
+                  onPressed: () => _player.loadAndPlay(
+                    SampleTracks.scienceFridayEpisode,
+                  ),
+                  child: const Text('loadAndPlay → onLoad + onPlay'),
+                ),
+                FilledButton.tonal(
+                  onPressed: _triggerError,
+                  child: const Text('Trigger error → onError'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Real seek bar — drag to fire onSeek with arbitrary positions.
+            StreamBuilder<Duration>(
+              stream: _player.positionStream,
+              initialData: _player.position,
+              builder:
+                  (
+                    BuildContext context,
+                    AsyncSnapshot<Duration> posSnap,
+                  ) {
+                    return StreamBuilder<Duration>(
+                      stream: _player.durationStream,
+                      initialData: _player.duration,
+                      builder:
+                          (
+                            BuildContext context,
+                            AsyncSnapshot<Duration> durSnap,
+                          ) {
+                            return StreamBuilder<Duration>(
+                              stream: _player.bufferStream,
+                              initialData: _player.buffer,
+                              builder:
+                                  (
+                                    BuildContext context,
+                                    AsyncSnapshot<Duration> bufSnap,
+                                  ) {
+                                    return SeekBar(
+                                      position:
+                                          posSnap.data ?? Duration.zero,
+                                      duration:
+                                          durSnap.data ?? Duration.zero,
+                                      bufferedPosition:
+                                          bufSnap.data ?? Duration.zero,
+                                      onSeek: (Duration target) =>
+                                          _player.seek(target),
+                                    );
+                                  },
+                            );
+                          },
+                    );
+                  },
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Drag the slider above → onSeek',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            StreamBuilder<CorePlayerState>(
+              stream: _player.playerStateStream,
+              initialData: _player.playerState,
+              builder:
+                  (
+                    BuildContext context,
+                    AsyncSnapshot<CorePlayerState> stateSnap,
+                  ) {
+                    return StreamBuilder<bool>(
+                      stream: _player.playingStream,
+                      initialData: _player.isPlaying,
+                      builder:
+                          (
+                            BuildContext context,
+                            AsyncSnapshot<bool> playingSnap,
+                          ) {
+                            return PlayPauseStopButtons(
+                              state: stateSnap.data ?? CorePlayerState.idle,
+                              isPlaying: playingSnap.data ?? false,
+                              onPlay: () => _player.play(),
+                              onPause: () => _player.pause(),
+                              onStop: () => _player.stop(),
+                            );
+                          },
+                    );
+                  },
+            ),
+            Text(
+              'Play / Pause / Stop → onPlay / onPause / onStop + onStateChange',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
             const Divider(height: 1),
-            Expanded(
+            const SizedBox(height: 8),
+            // Bounded log surface (240px) with its own ListView so the log
+            // scrolls independently within the outer scrollable body.
+            SizedBox(
+              height: 240,
               child: Container(
                 color: Colors.black,
                 padding: const EdgeInsets.all(8),
