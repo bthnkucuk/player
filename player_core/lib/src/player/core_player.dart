@@ -141,6 +141,46 @@ abstract class CorePlayer {
   /// `setQueue(CorePlayerQueue.empty())`.
   Future<void> clearQueue() => setQueue(const CorePlayerQueue.empty());
 
+  /// Inserts [source] immediately after the active index so it becomes the
+  /// next-to-play item. Implemented as an incremental mutation so the
+  /// currently-playing track is not re-opened (which would stall mid-track).
+  Future<void> insertNext(CorePlayerAudioSource source);
+
+  /// Appends [source] to the end of the queue. Preserves playback continuity
+  /// — never re-opens the active media.
+  Future<void> appendToQueue(CorePlayerAudioSource source);
+
+  /// Bulk variant of [appendToQueue]. Sources are appended in iteration
+  /// order; a partial failure mid-batch leaves the already-appended items
+  /// in place (the underlying playlist primitive does not roll back).
+  Future<void> appendAllToQueue(List<CorePlayerAudioSource> sources);
+
+  /// Removes the queue item at [index]. When [index] is the active track
+  /// playback advances to the next item (or stops when none remains);
+  /// when [index] is before the active track the cursor decrements by 1
+  /// so the active item stays the same. Throws [QueueOutOfBoundsFailure]
+  /// for out-of-range indices.
+  Future<void> removeAt(int index);
+
+  /// Moves the queue item from [from] to [to]. Both indices are clamped
+  /// into `[0, queue.length)`. The active cursor follows the moved item,
+  /// so the playing track is never re-opened.
+  Future<void> moveItem(int from, int to);
+
+  /// Replaces the queue item at [index] with [source]. When
+  /// [preservePosition] is true AND [index] is the active track the impl
+  /// attempts to resume the new source at the playhead offset captured
+  /// just before the swap. The flag is a hint — engines that cannot
+  /// honour it MUST document the fallback engine-side. Position
+  /// restoration lands on the next position-stream emission after the
+  /// new source's duration is known; callers should not assume it is
+  /// observable synchronously.
+  Future<void> replaceAt(
+    int index,
+    CorePlayerAudioSource source, {
+    bool preservePosition = false,
+  });
+
   /// Advances to the next track. If the queue is at its last index and
   /// [loopMode] is [CorePlayerLoopMode.all], wraps to index 0; otherwise
   /// throws [QueueOutOfBoundsFailure]. Throws on empty queues.
