@@ -1,6 +1,7 @@
 export 'src/config/core_player_configuration.dart';
 export 'src/failures/core_player_failure.dart';
 export 'src/observer/core_player_observer.dart';
+export 'src/player/core_network_hint.dart';
 export 'src/player/core_player.dart';
 export 'src/player/core_player_capabilities.dart';
 export 'src/player/core_audio_handler.dart';

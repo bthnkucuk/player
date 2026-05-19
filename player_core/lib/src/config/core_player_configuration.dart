@@ -1,4 +1,5 @@
 import 'package:player_core/src/player/core_audio_source.dart';
+import 'package:player_core/src/player/core_network_hint.dart';
 
 /// Signature for the logger callback wired through
 /// [CorePlayerConfiguration.logCallback]. Pass an adapter that forwards into
@@ -34,6 +35,7 @@ class CorePlayerConfiguration {
     this.internalPositionThrottle = const Duration(milliseconds: 200),
     this.libmpvOptions,
     this.onQueueExhausted,
+    this.networkPolicy = const NetworkPolicy(),
   });
 
   /// Native player buffer size in bytes. Larger = smoother streaming over
@@ -132,6 +134,11 @@ class CorePlayerConfiguration {
   /// Wrapper is intentionally opinion-free: the app's recommendation
   /// engine decides what plays next.
   final CorePlayerOnQueueExhausted? onQueueExhausted;
+
+  /// Network-state policy. See [NetworkPolicy]. Defaults to the standard
+  /// policy (pause on offline). Override with [NetworkPolicy.none] to make
+  /// the wrapper ignore [CorePlayer.notifyNetworkHint] calls entirely.
+  final NetworkPolicy networkPolicy;
 }
 
 /// Retry policy for `CorePlayer.load()`. When [maxAttempts] is 1 the wrapper
