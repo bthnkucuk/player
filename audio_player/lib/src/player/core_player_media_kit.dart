@@ -47,7 +47,11 @@ class CorePlayerMediaKit extends CorePlayer
     MediaKit.ensureInitialized();
     CoreAudioHandler.registerBridge(CoreMediaKitAudioServiceBridge());
     CorePlayer.registerFactory(({audioSource, audioHandler, autoLoad = false}) {
-      return CorePlayerMediaKit(audioSource: audioSource, audioHandler: audioHandler, autoLoad: autoLoad);
+      return CorePlayerMediaKit(
+        audioSource: audioSource,
+        audioHandler: audioHandler,
+        autoLoad: autoLoad,
+      );
     });
   }
 
@@ -55,12 +59,15 @@ class CorePlayerMediaKit extends CorePlayer
   /// recent [ensureInitialized] call (or the default if none was passed).
   static CorePlayerConfiguration get configuration => _configuration;
 
-  static CorePlayerConfiguration _configuration = const CorePlayerConfiguration();
+  static CorePlayerConfiguration _configuration =
+      const CorePlayerConfiguration();
 
   /// Test seam: replace the active [configuration] without going through the
   /// real [ensureInitialized] (which touches MediaKit + AudioService natives).
   @visibleForTesting
-  static void debugSetConfigurationForTest(CorePlayerConfiguration configuration) {
+  static void debugSetConfigurationForTest(
+    CorePlayerConfiguration configuration,
+  ) {
     _configuration = configuration;
   }
 
@@ -69,12 +76,22 @@ class CorePlayerMediaKit extends CorePlayer
   /// `dart:developer`'s `log` otherwise. Public so the sibling
   /// `core_audio_service_bridge.dart` can reuse the same indirection.
   @internal
-  static void log(String message, {Object? error, StackTrace? stackTrace, String? name}) {
+  static void log(
+    String message, {
+    Object? error,
+    StackTrace? stackTrace,
+    String? name,
+  }) {
     final cb = _configuration.logCallback;
     if (cb != null) {
       cb(message, error: error, stackTrace: stackTrace);
     } else {
-      developer.log(message, error: error, stackTrace: stackTrace, name: name ?? 'audio_player');
+      developer.log(
+        message,
+        error: error,
+        stackTrace: stackTrace,
+        name: name ?? 'audio_player',
+      );
     }
   }
 
@@ -114,12 +131,12 @@ class CorePlayerMediaKit extends CorePlayer
     }
   }
 
-  late final BehaviorSubject<CorePlayerAudioSource?> _audioSourceSubject = BehaviorSubject<CorePlayerAudioSource?>.seeded(
-    _audioSource,
-  );
+  late final BehaviorSubject<CorePlayerAudioSource?> _audioSourceSubject =
+      BehaviorSubject<CorePlayerAudioSource?>.seeded(_audioSource);
 
   @override
-  late final ValueStream<CorePlayerAudioSource?> audioSourceStream = _audioSourceSubject.stream;
+  late final ValueStream<CorePlayerAudioSource?> audioSourceStream =
+      _audioSourceSubject.stream;
 
   @override
   final CoreAudioHandler? audioHandler;
@@ -128,6 +145,7 @@ class CorePlayerMediaKit extends CorePlayer
   @override
   bool get autoLoad => _autoLoad ?? false;
 
+  @override
   final Player player;
 
   /// Direct construction is internal — use [CorePlayer.create] after
@@ -141,7 +159,13 @@ class CorePlayerMediaKit extends CorePlayer
     this.audioHandler,
     bool autoLoad = false,
     @visibleForTesting Player? testPlayer,
-  }) : player = testPlayer ?? Player(configuration: PlayerConfiguration(bufferSize: _configuration.bufferSizeBytes)),
+  }) : player =
+           testPlayer ??
+           Player(
+             configuration: PlayerConfiguration(
+               bufferSize: _configuration.bufferSizeBytes,
+             ),
+           ),
        _audioSource = audioSource,
        _autoLoad = autoLoad {
     // Apply libmpv property overrides (defaults + consumer overrides from
@@ -156,7 +180,10 @@ class CorePlayerMediaKit extends CorePlayer
       // SCOPE the player was constructed with (via `audioHandler`), not the
       // default scope — this is how multi-scope usage works.
       _trackPending(
-        audioHandler!.attach(this).then<void>((_) {}).catchError((Object e, StackTrace s) {
+        audioHandler!.attach(this).then<void>((_) {}).catchError((
+          Object e,
+          StackTrace s,
+        ) {
           if (_disposed) return;
           _playerErrorSubject.add('attachPlayer failed: $e');
         }),
@@ -205,7 +232,9 @@ class CorePlayerMediaKit extends CorePlayer
       }
       final index = playlist.index.clamp(0, _sources.length - 1);
       final newQueue = CorePlayerQueue(_sources, currentIndex: index);
-      final previousIndex = _queueStreamBacking.hasValue ? _queueStreamBacking.value.currentIndex : -1;
+      final previousIndex = _queueStreamBacking.hasValue
+          ? _queueStreamBacking.value.currentIndex
+          : -1;
       // Cache the previous active source BEFORE pushing the new queue so a
       // mutation API call (removeAt / replaceAt) that swaps the source at
       // the same index is still observable: comparing newSource against
@@ -230,16 +259,17 @@ class CorePlayerMediaKit extends CorePlayer
     // UIs can subscribe to one stream. `distinct` collapses back-to-back
     // identical records (mostly when only the buffer changes upstream and
     // both inputs re-emit unchanged values).
-    _positionDataSubscription = Rx.combineLatest2<Duration, Duration, CorePlayerPositionData>(
-      _positionSubject.stream,
-      _durationSubject.stream,
-      (p, d) => (position: p, duration: d),
-    ).distinct().listen((data) {
-      if (_disposed) return;
-      if (!_positionDataSubject.isClosed) {
-        _positionDataSubject.add(data);
-      }
-    });
+    _positionDataSubscription =
+        Rx.combineLatest2<Duration, Duration, CorePlayerPositionData>(
+          _positionSubject.stream,
+          _durationSubject.stream,
+          (p, d) => (position: p, duration: d),
+        ).distinct().listen((data) {
+          if (_disposed) return;
+          if (!_positionDataSubject.isClosed) {
+            _positionDataSubject.add(data);
+          }
+        });
 
     // Queue-exhaustion detector: media_kit's `completed` fires on every
     // track end. We only invoke the configured callback when the last
@@ -259,7 +289,11 @@ class CorePlayerMediaKit extends CorePlayer
     final positionThrottle = _configuration.internalPositionThrottle;
     final throttledPosition = positionThrottle == Duration.zero
         ? player.stream.position
-        : player.stream.position.throttleTime(positionThrottle, leading: true, trailing: true);
+        : player.stream.position.throttleTime(
+            positionThrottle,
+            leading: true,
+            trailing: true,
+          );
     _playerStateSubscription = Rx.combineLatest5(
       player.stream.buffer,
       player.stream.playing,
@@ -461,17 +495,28 @@ class CorePlayerMediaKit extends CorePlayer
   StreamSubscription<CorePlayerPositionData>? _positionDataSubscription;
   StreamSubscription<bool>? _queueExhaustedSubscription;
 
-  final BehaviorSubject<String?> _playerErrorSubject = BehaviorSubject<String?>.seeded(null);
-  final BehaviorSubject<CorePlayerState> _playerStateSubject = BehaviorSubject<CorePlayerState>.seeded(CorePlayerState.idle);
-  final BehaviorSubject<Duration> _durationSubject = BehaviorSubject<Duration>.seeded(Duration.zero);
-  final BehaviorSubject<Duration> _positionSubject = BehaviorSubject<Duration>.seeded(Duration.zero);
-  final BehaviorSubject<Duration> _bufferSubject = BehaviorSubject<Duration>.seeded(Duration.zero);
-  final BehaviorSubject<bool> _playingSubject = BehaviorSubject<bool>.seeded(false);
-  final BehaviorSubject<double> _rateSubject = BehaviorSubject<double>.seeded(1.0);
-  final BehaviorSubject<double> _volumeSubject = BehaviorSubject<double>.seeded(1.0);
-  final BehaviorSubject<CorePlayerLoopMode> _loopModeSubject = BehaviorSubject<CorePlayerLoopMode>.seeded(
-    CorePlayerLoopMode.off,
+  final BehaviorSubject<String?> _playerErrorSubject =
+      BehaviorSubject<String?>.seeded(null);
+  final BehaviorSubject<CorePlayerState> _playerStateSubject =
+      BehaviorSubject<CorePlayerState>.seeded(CorePlayerState.idle);
+  final BehaviorSubject<Duration> _durationSubject =
+      BehaviorSubject<Duration>.seeded(Duration.zero);
+  final BehaviorSubject<Duration> _positionSubject =
+      BehaviorSubject<Duration>.seeded(Duration.zero);
+  final BehaviorSubject<Duration> _bufferSubject =
+      BehaviorSubject<Duration>.seeded(Duration.zero);
+  final BehaviorSubject<bool> _playingSubject = BehaviorSubject<bool>.seeded(
+    false,
   );
+  final BehaviorSubject<double> _rateSubject = BehaviorSubject<double>.seeded(
+    1.0,
+  );
+  final BehaviorSubject<double> _volumeSubject = BehaviorSubject<double>.seeded(
+    1.0,
+  );
+  @override
+  final BehaviorSubject<CorePlayerLoopMode> _loopModeSubject =
+      BehaviorSubject<CorePlayerLoopMode>.seeded(CorePlayerLoopMode.off);
 
   /// Derived from `player.stream.playlist` — DO NOT add directly except
   /// from the playlist subscription, or from the explicit empty-queue
@@ -479,27 +524,32 @@ class CorePlayerMediaKit extends CorePlayer
   /// [player.open]; the playlist stream then drives this subject. Single
   /// source of truth: media_kit owns playback queue state, the wrapper
   /// only stores the typed-source mapping in [_sources].
-  final BehaviorSubject<CorePlayerQueue> _queueStreamBacking = BehaviorSubject<CorePlayerQueue>.seeded(
-    const CorePlayerQueue.empty(),
-  );
+  @override
+  final BehaviorSubject<CorePlayerQueue> _queueStreamBacking =
+      BehaviorSubject<CorePlayerQueue>.seeded(const CorePlayerQueue.empty());
 
   /// Parallel list of [CorePlayerAudioSource] matching the [Media] list in
   /// media_kit's current [Playlist]. Indexed by position. Used to round-
   /// trip from a media_kit [Playlist] back to a typed [CorePlayerQueue].
   /// Only mutated inside [setQueue] BEFORE `player.open(...)` is awaited;
   /// every queue change is then observed via the playlist subscription.
+  @override
   List<CorePlayerAudioSource> _sources = const [];
 
-  final BehaviorSubject<bool> _shuffleSubject = BehaviorSubject<bool>.seeded(false);
+  @override
+  final BehaviorSubject<bool> _shuffleSubject = BehaviorSubject<bool>.seeded(
+    false,
+  );
 
   /// Seeded with a zero/zero record so freshly mounted scrubber widgets get
   /// an immediate snapshot rather than a frame-one blank. Fed by a
   /// `Rx.combineLatest2(position, duration)` pipeline plugged in from the
   /// constructor.
   final BehaviorSubject<CorePlayerPositionData> _positionDataSubject =
-      BehaviorSubject<CorePlayerPositionData>.seeded(
-        (position: Duration.zero, duration: Duration.zero),
-      );
+      BehaviorSubject<CorePlayerPositionData>.seeded((
+        position: Duration.zero,
+        duration: Duration.zero,
+      ));
 
   /// Re-entrancy guard for the queue-exhaustion handler. media_kit's
   /// `completed` can emit `true` more than once for the same end-of-stream
@@ -508,7 +558,8 @@ class CorePlayerMediaKit extends CorePlayer
   /// queue grows (append succeeded) or when setQueue replaces the queue.
   bool _queueExhaustedHandled = false;
 
-  final StreamController<CorePlayerFailure> _errorController = StreamController<CorePlayerFailure>.broadcast();
+  final StreamController<CorePlayerFailure> _errorController =
+      StreamController<CorePlayerFailure>.broadcast();
 
   @override
   Stream<CorePlayerFailure> get errorStream => _errorController.stream;
@@ -517,6 +568,7 @@ class CorePlayerMediaKit extends CorePlayer
   /// throw site so passive observers see the same failure as direct callers.
   /// The emit is best-effort — if the controller has already been closed (post
   /// dispose), only the throw runs.
+  @override
   Never _throwAndEmit(CorePlayerFailure failure) {
     if (!_errorController.isClosed) {
       _errorController.add(failure);
@@ -537,7 +589,8 @@ class CorePlayerMediaKit extends CorePlayer
   bool get isPlaying => _playingSubject.value;
 
   @override
-  late final ValueStream<CorePlayerState> playerStateStream = _playerStateSubject.stream;
+  late final ValueStream<CorePlayerState> playerStateStream =
+      _playerStateSubject.stream;
   @override
   late final ValueStream<Duration> positionStream = _positionSubject.stream;
   @override
@@ -567,7 +620,9 @@ class CorePlayerMediaKit extends CorePlayer
   Future<void> setVolume(double volume) async {
     if (_disposed) _throwAndEmit(const PlayerDisposedFailure());
     final clamped = volume.clamp(0.0, 1.0);
-    await runOnNative(() => player.setVolume(clamped * 100)); // media_kit uses 0-100 scale
+    await runOnNative(
+      () => player.setVolume(clamped * 100),
+    ); // media_kit uses 0-100 scale
     _volumeSubject.add(clamped);
   }
 
@@ -575,7 +630,8 @@ class CorePlayerMediaKit extends CorePlayer
   CorePlayerLoopMode get loopMode => _loopModeSubject.value;
 
   @override
-  late final ValueStream<CorePlayerLoopMode> loopModeStream = _loopModeSubject.stream;
+  late final ValueStream<CorePlayerLoopMode> loopModeStream =
+      _loopModeSubject.stream;
 
   @override
   Future<void> setPlaybackSpeed(double speed) async {
@@ -585,7 +641,9 @@ class CorePlayerMediaKit extends CorePlayer
     try {
       await runOnNative(() => player.setRate(speed));
     } catch (e) {
-      _throwAndEmit(PlaybackSpeedFailure('Failed to set speed $speed', cause: e));
+      _throwAndEmit(
+        PlaybackSpeedFailure('Failed to set speed $speed', cause: e),
+      );
     }
     // stream.rate often does not emit on programmatic setRate; keep UI in sync.
     _rateSubject.add(player.state.rate);
@@ -633,7 +691,8 @@ class CorePlayerMediaKit extends CorePlayer
   CorePlayerQueue get queue => _queueStreamBacking.value;
 
   @override
-  late final ValueStream<CorePlayerQueue> queueStream = _queueStreamBacking.stream;
+  late final ValueStream<CorePlayerQueue> queueStream =
+      _queueStreamBacking.stream;
 
   @override
   Future<void> setQueue(CorePlayerQueue queue) async {
@@ -857,11 +916,7 @@ class CorePlayerMediaKit extends CorePlayer
       );
     }
     return runOnQueue(
-      () => _replaceAtLocked(
-        index,
-        source,
-        preservePosition: preservePosition,
-      ),
+      () => _replaceAtLocked(index, source, preservePosition: preservePosition),
     );
   }
 
@@ -940,10 +995,16 @@ class CorePlayerMediaKit extends CorePlayer
         return;
       } on Object catch (e) {
         if (attempt >= retry.maxAttempts) {
-          _throwAndEmit(LoadFailure('Failed to load media after $attempt attempts: $e', cause: e));
+          _throwAndEmit(
+            LoadFailure(
+              'Failed to load media after $attempt attempts: $e',
+              cause: e,
+            ),
+          );
         }
         await Future<void>.delayed(backoff);
-        final nextMillis = (backoff.inMilliseconds * retry.backoffMultiplier).round();
+        final nextMillis = (backoff.inMilliseconds * retry.backoffMultiplier)
+            .round();
         final next = Duration(milliseconds: nextMillis);
         backoff = next > retry.maxBackoff ? retry.maxBackoff : next;
       }
@@ -1008,7 +1069,10 @@ class CorePlayerMediaKit extends CorePlayer
     return runOnQueue(() => _doLoadAndPlay(audioSource, nextSetQueueToken()));
   }
 
-  Future<void> _doLoadAndPlay(CorePlayerAudioSource audioSource, int token) async {
+  Future<void> _doLoadAndPlay(
+    CorePlayerAudioSource audioSource,
+    int token,
+  ) async {
     if (_disposed) return;
     await stop();
     if (token != latestSetQueueToken || _disposed) return;
@@ -1050,9 +1114,17 @@ class CorePlayerMediaKit extends CorePlayer
       // `audio_player/example/lib/demos/raw_media_kit.dart`
       // (_seekByPercent) for the full rationale. `as dynamic` is required
       // because NativePlayer is a stub on web without `command()`.
-      final double pct = (positionToSeek.inMilliseconds / dur.inMilliseconds * 100).clamp(0.0, 100.0);
+      final double pct =
+          (positionToSeek.inMilliseconds / dur.inMilliseconds * 100).clamp(
+            0.0,
+            100.0,
+          );
       await runOnNative(() async {
-        await (platform as dynamic).command(['seek', pct.toString(), 'absolute-percent+keyframes']);
+        await (platform as dynamic).command([
+          'seek',
+          pct.toString(),
+          'absolute-percent+keyframes',
+        ]);
       });
     } else {
       await runOnNative(() => player.seek(positionToSeek));
@@ -1086,16 +1158,25 @@ class CorePlayerMediaKit extends CorePlayer
     }
     if (playerState == CorePlayerState.ready) return;
 
-    final future = playerStateStream.firstWhere((s) => s == CorePlayerState.ready || s == CorePlayerState.error);
+    final future = playerStateStream.firstWhere(
+      (s) => s == CorePlayerState.ready || s == CorePlayerState.error,
+    );
 
-    final state = timeout != null ? await future.timeout(timeout) : await future;
+    final state = timeout != null
+        ? await future.timeout(timeout)
+        : await future;
     if (state == CorePlayerState.error) {
-      _throwAndEmit(LoadFailure(_playerErrorSubject.value ?? 'Unknown player error'));
+      _throwAndEmit(
+        LoadFailure(_playerErrorSubject.value ?? 'Unknown player error'),
+      );
     }
   }
 
+  @override
   bool _disposed = false;
+
   bool _asyncDisposeStarted = false;
+
   @override
   bool get isDisposed => _disposed;
 
@@ -1210,7 +1291,8 @@ class CorePlayerMediaKit extends CorePlayer
   /// current media to the lock-screen on a scope focus transfer. Not for
   /// app code.
   @internal
-  MediaItem toMediaItemForBridge(CorePlayerAudioSource audioSource) => _toMediaItem(audioSource);
+  MediaItem toMediaItemForBridge(CorePlayerAudioSource audioSource) =>
+      _toMediaItem(audioSource);
 
   AudioProcessingState _toProcessingState(CorePlayerState state) {
     switch (state) {
@@ -1237,8 +1319,11 @@ class CorePlayerMediaKit extends CorePlayer
     final currentItem = currentAudioHandler?.currentMediaItem;
     final lastDuration = currentItem is MediaItem ? currentItem.duration : null;
 
-    if (currentItem is MediaItem && (lastDuration == null || lastDuration != duration)) {
-      currentAudioHandler?.emitMediaItem(currentItem.copyWith(duration: duration));
+    if (currentItem is MediaItem &&
+        (lastDuration == null || lastDuration != duration)) {
+      currentAudioHandler?.emitMediaItem(
+        currentItem.copyWith(duration: duration),
+      );
     }
     return PlaybackState(
       controls: [
