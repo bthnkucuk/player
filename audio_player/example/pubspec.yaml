@@ -27,6 +27,11 @@ dependencies:
   # Talker is wired to CorePlayerConfiguration.logCallback so the Debug Logs
   # demo can show the live bridge log stream. Version matches the rest of
   talker_flutter: ^5.1.17
+  # rxdart is exposed through player_core's public surface (ValueStream,
+  # Rx.combineLatest2 etc.). The example imports it directly for the skip-
+  # button's combined queue+loopMode predicate, so declare it explicitly to
+  # satisfy depend_on_referenced_packages.
+  rxdart: ^0.28.0
 
 dev_dependencies:
   flutter_test:

@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:player_core/player_core.dart';
-// rxdart reaches us transitively through player_core (which exposes
-// ValueStream and uses Rx.* internally). The example pubspec intentionally
-// does NOT list it as a direct dep — keep this import suppressed.
-// ignore: depend_on_referenced_packages
 import 'package:rxdart/rxdart.dart';
 
 /// Transport row: replay 10s, skip prev, play/pause/stop, skip next, forward 10s.
