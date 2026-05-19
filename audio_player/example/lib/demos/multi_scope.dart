@@ -114,85 +114,90 @@ class _ScopePane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: <Widget>[
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            FilledButton.tonalIcon(
-              icon: const Icon(Icons.swap_horiz),
-              label: const Text('Give focus'),
-              onPressed: () => scope.requestSystemAudioFocus(),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            _ScopeThumbnail(artUri: source.artUri, size: 56),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                source.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium,
+    // SingleChildScrollView so a single scope card can shrink without
+    // overflowing when its share of the screen is smaller than the natural
+    // height of title row + thumb + play row + seek bar (e.g. landscape).
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              FilledButton.tonalIcon(
+                icon: const Icon(Icons.swap_horiz),
+                label: const Text('Give focus'),
+                onPressed: () => scope.requestSystemAudioFocus(),
               ),
-            ),
-          ],
-        ),
-        StreamBuilder<CorePlayerState>(
-          stream: player.playerStateStream,
-          initialData: player.playerState,
-          builder: (BuildContext context, AsyncSnapshot<CorePlayerState> stateSnap) {
-            return StreamBuilder<bool>(
-              stream: player.playingStream,
-              initialData: player.isPlaying,
-              builder: (BuildContext context, AsyncSnapshot<bool> playingSnap) {
-                return PlayPauseStopButtons(
-                  state: stateSnap.data ?? CorePlayerState.idle,
-                  isPlaying: playingSnap.data ?? false,
-                  onPlay: () async {
-                    if (player.audioSource == null) {
-                      await player.loadAndPlay(source);
-                    } else {
-                      await player.play();
-                    }
-                  },
-                  onPause: () => player.pause(),
-                  onStop: () => player.stop(),
-                );
-              },
-            );
-          },
-        ),
-        StreamBuilder<Duration>(
-          stream: player.positionStream,
-          initialData: player.position,
-          builder: (BuildContext context, AsyncSnapshot<Duration> posSnap) {
-            return StreamBuilder<Duration>(
-              stream: player.durationStream,
-              initialData: player.duration,
-              builder: (BuildContext context, AsyncSnapshot<Duration> durSnap) {
-                return StreamBuilder<Duration>(
-                  stream: player.bufferStream,
-                  initialData: player.buffer,
-                  builder: (BuildContext context, AsyncSnapshot<Duration> bufSnap) {
-                    return SeekBar(
-                      duration: durSnap.data ?? Duration.zero,
-                      position: posSnap.data ?? Duration.zero,
-                      bufferedPosition: bufSnap.data ?? Duration.zero,
-                      onSeek: player.seek,
-                    );
-                  },
-                );
-              },
-            );
-          },
-        ),
-      ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: <Widget>[
+              _ScopeThumbnail(artUri: source.artUri, size: 56),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  source.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+          StreamBuilder<CorePlayerState>(
+            stream: player.playerStateStream,
+            initialData: player.playerState,
+            builder: (BuildContext context, AsyncSnapshot<CorePlayerState> stateSnap) {
+              return StreamBuilder<bool>(
+                stream: player.playingStream,
+                initialData: player.isPlaying,
+                builder: (BuildContext context, AsyncSnapshot<bool> playingSnap) {
+                  return PlayPauseStopButtons(
+                    state: stateSnap.data ?? CorePlayerState.idle,
+                    isPlaying: playingSnap.data ?? false,
+                    onPlay: () async {
+                      if (player.audioSource == null) {
+                        await player.loadAndPlay(source);
+                      } else {
+                        await player.play();
+                      }
+                    },
+                    onPause: () => player.pause(),
+                    onStop: () => player.stop(),
+                  );
+                },
+              );
+            },
+          ),
+          StreamBuilder<Duration>(
+            stream: player.positionStream,
+            initialData: player.position,
+            builder: (BuildContext context, AsyncSnapshot<Duration> posSnap) {
+              return StreamBuilder<Duration>(
+                stream: player.durationStream,
+                initialData: player.duration,
+                builder: (BuildContext context, AsyncSnapshot<Duration> durSnap) {
+                  return StreamBuilder<Duration>(
+                    stream: player.bufferStream,
+                    initialData: player.buffer,
+                    builder: (BuildContext context, AsyncSnapshot<Duration> bufSnap) {
+                      return SeekBar(
+                        duration: durSnap.data ?? Duration.zero,
+                        position: posSnap.data ?? Duration.zero,
+                        bufferedPosition: bufSnap.data ?? Duration.zero,
+                        onSeek: player.seek,
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
