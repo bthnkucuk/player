@@ -252,7 +252,24 @@ void main() {
         );
       });
 
-      final restored = await CorePlayer.restore(snap);
+      // Start restore. It now waits for durationStream to emit a non-zero
+      // value before issuing seek (otherwise media_kit drops the seek
+      // because the source isn't loaded yet — the position-stays-at-zero
+      // bug). We assert both halves of the contract: no seek before
+      // duration, then a single seek with the right target after.
+      final restoredFuture = CorePlayer.restore(snap);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        seekCalls,
+        isEmpty,
+        reason: 'seek must not fire before the source has emitted a duration '
+            '(would land on a not-yet-loaded native source and be dropped)',
+      );
+
+      // Simulate the demuxer surfacing the source's duration.
+      h2.duration.add(const Duration(minutes: 3));
+
+      final restored = await restoredFuture;
       addTearDown(() async {
         await restored.dispose();
         await h2.close();

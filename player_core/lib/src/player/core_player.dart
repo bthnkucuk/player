@@ -371,14 +371,29 @@ abstract class CorePlayer {
     }
     final queue = CorePlayerQueue.fromJson(rawQueue.cast<String, Object?>());
     final player = CorePlayer.create(audioHandler: audioHandler);
-    // Order matters: setQueue first (opens native handle for the active
-    // source), then seek the playhead. Skip the seek on empty queues —
-    // there's nothing to position. Leave paused; consumer calls play().
+    // Order matters: setQueue opens the native handle for the active source,
+    // but `open()` returns BEFORE the demuxer has parsed the source enough
+    // to honour a seek. Issuing `seek()` immediately drops it silently and
+    // the playhead stays at zero — exactly the bug a restored snapshot
+    // would show. Wait for the first non-zero duration emission (signals
+    // "source parsed, now seekable") with a generous timeout; on timeout,
+    // skip the seek and leave the playhead at zero rather than hang
+    // forever. Empty queues skip the whole dance — there's nothing to
+    // position. Leave paused; consumer calls play().
     if (queue.isNotEmpty) {
       await player.setQueue(queue);
       final position = Duration(milliseconds: positionMs);
       if (position > Duration.zero) {
-        await player.seek(position);
+        try {
+          await player.durationStream
+              .firstWhere((d) => d > Duration.zero)
+              .timeout(const Duration(seconds: 10));
+          await player.seek(position);
+        } on TimeoutException {
+          // Source didn't surface a duration within the budget (slow network
+          // or unreachable URL). Best-effort: skip the seek; the consumer
+          // gets a player with the right queue + index but at position 0.
+        }
       }
     }
     return player;
