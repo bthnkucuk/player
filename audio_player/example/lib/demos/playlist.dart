@@ -64,144 +64,146 @@ class _PlaylistDemoState extends State<PlaylistDemo> {
     return Scaffold(
       appBar: AppBar(title: const Text('Playlist')),
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: <Widget>[
-                  FilledButton.icon(
-                    onPressed: _loadQueue,
-                    icon: const Icon(Icons.queue_music),
-                    label: Text(_queueLoaded ? 'Reload queue' : 'Load ${SampleTracks.playlist.length}-track queue'),
-                  ),
-                  StreamBuilder<CorePlayerState>(
-                    stream: _player.playerStateStream,
-                    initialData: _player.playerState,
-                    builder: (BuildContext context, AsyncSnapshot<CorePlayerState> stateSnap) {
-                      return StreamBuilder<bool>(
-                        stream: _player.playingStream,
-                        initialData: _player.isPlaying,
-                        builder: (BuildContext context, AsyncSnapshot<bool> playingSnap) {
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: <Widget>[
-                              IconButton(
-                                iconSize: 40,
-                                icon: const Icon(Icons.skip_previous),
-                                onPressed: () => _safe(_player.skipToPrevious),
-                              ),
-                              PlayPauseStopButtons(
-                                state: stateSnap.data ?? CorePlayerState.idle,
-                                isPlaying: playingSnap.data ?? false,
-                                onPlay: () => _safe(_player.play),
-                                onPause: () => _safe(_player.pause),
-                                onStop: () => _safe(_player.stop),
-                                showStop: false,
-                              ),
-                              IconButton(
-                                iconSize: 40,
-                                icon: const Icon(Icons.skip_next),
-                                onPressed: () => _safe(_player.skipToNext),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                  ),
-                  StreamBuilder<Duration>(
-                    stream: _player.positionStream,
-                    initialData: _player.position,
-                    builder: (BuildContext context, AsyncSnapshot<Duration> posSnap) {
-                      return StreamBuilder<Duration>(
-                        stream: _player.durationStream,
-                        initialData: _player.duration,
-                        builder: (BuildContext context, AsyncSnapshot<Duration> durSnap) {
-                          return StreamBuilder<Duration>(
-                            stream: _player.bufferStream,
-                            initialData: _player.buffer,
-                            builder: (BuildContext context, AsyncSnapshot<Duration> bufSnap) {
-                              return SeekBar(
-                                duration: durSnap.data ?? Duration.zero,
-                                position: posSnap.data ?? Duration.zero,
-                                bufferedPosition: bufSnap.data ?? Duration.zero,
-                                onSeek: _player.seek,
+        child: StreamBuilder<CorePlayerQueue>(
+          stream: _player.queueStream,
+          initialData: _player.queue,
+          builder: (BuildContext context, AsyncSnapshot<CorePlayerQueue> snap) {
+            final CorePlayerQueue queue = snap.data ?? const CorePlayerQueue.empty();
+            // Single scrollable surface: controls header + queue items. Avoids
+            // the "fixed-height controls + Expanded queue" overflow that hits
+            // on small landscape viewports where the controls section alone is
+            // taller than the available body height.
+            return ListView(
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: <Widget>[
+                      FilledButton.icon(
+                        onPressed: _loadQueue,
+                        icon: const Icon(Icons.queue_music),
+                        label: Text(_queueLoaded ? 'Reload queue' : 'Load ${SampleTracks.playlist.length}-track queue'),
+                      ),
+                      StreamBuilder<CorePlayerState>(
+                        stream: _player.playerStateStream,
+                        initialData: _player.playerState,
+                        builder: (BuildContext context, AsyncSnapshot<CorePlayerState> stateSnap) {
+                          return StreamBuilder<bool>(
+                            stream: _player.playingStream,
+                            initialData: _player.isPlaying,
+                            builder: (BuildContext context, AsyncSnapshot<bool> playingSnap) {
+                              return Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: <Widget>[
+                                  IconButton(
+                                    iconSize: 40,
+                                    icon: const Icon(Icons.skip_previous),
+                                    onPressed: () => _safe(_player.skipToPrevious),
+                                  ),
+                                  PlayPauseStopButtons(
+                                    state: stateSnap.data ?? CorePlayerState.idle,
+                                    isPlaying: playingSnap.data ?? false,
+                                    onPlay: () => _safe(_player.play),
+                                    onPause: () => _safe(_player.pause),
+                                    onStop: () => _safe(_player.stop),
+                                    showStop: false,
+                                  ),
+                                  IconButton(
+                                    iconSize: 40,
+                                    icon: const Icon(Icons.skip_next),
+                                    onPressed: () => _safe(_player.skipToNext),
+                                  ),
+                                ],
                               );
                             },
                           );
                         },
-                      );
-                    },
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      StreamBuilder<CorePlayerLoopMode>(
-                        stream: _player.loopModeStream,
-                        initialData: _player.loopMode,
-                        builder: (BuildContext context, AsyncSnapshot<CorePlayerLoopMode> snap) {
-                          return LoopModeButton(
-                            mode: snap.data ?? CorePlayerLoopMode.off,
-                            onChanged: _player.setLoopMode,
+                      ),
+                      StreamBuilder<Duration>(
+                        stream: _player.positionStream,
+                        initialData: _player.position,
+                        builder: (BuildContext context, AsyncSnapshot<Duration> posSnap) {
+                          return StreamBuilder<Duration>(
+                            stream: _player.durationStream,
+                            initialData: _player.duration,
+                            builder: (BuildContext context, AsyncSnapshot<Duration> durSnap) {
+                              return StreamBuilder<Duration>(
+                                stream: _player.bufferStream,
+                                initialData: _player.buffer,
+                                builder: (BuildContext context, AsyncSnapshot<Duration> bufSnap) {
+                                  return SeekBar(
+                                    duration: durSnap.data ?? Duration.zero,
+                                    position: posSnap.data ?? Duration.zero,
+                                    bufferedPosition: bufSnap.data ?? Duration.zero,
+                                    onSeek: _player.seek,
+                                  );
+                                },
+                              );
+                            },
                           );
                         },
                       ),
-                      const SizedBox(width: 16),
-                      StreamBuilder<bool>(
-                        stream: _player.shuffleStream,
-                        initialData: _player.shuffle,
-                        builder: (BuildContext context, AsyncSnapshot<bool> snap) {
-                          return ShuffleButton(enabled: snap.data ?? false, onChanged: _player.setShuffle);
-                        },
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          StreamBuilder<CorePlayerLoopMode>(
+                            stream: _player.loopModeStream,
+                            initialData: _player.loopMode,
+                            builder: (BuildContext context, AsyncSnapshot<CorePlayerLoopMode> snap) {
+                              return LoopModeButton(
+                                mode: snap.data ?? CorePlayerLoopMode.off,
+                                onChanged: _player.setLoopMode,
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 16),
+                          StreamBuilder<bool>(
+                            stream: _player.shuffleStream,
+                            initialData: _player.shuffle,
+                            builder: (BuildContext context, AsyncSnapshot<bool> snap) {
+                              return ShuffleButton(enabled: snap.data ?? false, onChanged: _player.setShuffle);
+                            },
+                          ),
+                        ],
                       ),
+                      if (_lastError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text('Error: $_lastError', style: const TextStyle(color: Colors.red)),
+                        ),
                     ],
                   ),
-                  if (_lastError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text('Error: $_lastError', style: const TextStyle(color: Colors.red)),
+                ),
+                const Divider(height: 1),
+                if (queue.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text('Queue is empty. Tap "Load queue" above.'),
                     ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: StreamBuilder<CorePlayerQueue>(
-                stream: _player.queueStream,
-                initialData: _player.queue,
-                builder: (BuildContext context, AsyncSnapshot<CorePlayerQueue> snap) {
-                  final CorePlayerQueue queue = snap.data ?? const CorePlayerQueue.empty();
-                  if (queue.isEmpty) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text('Queue is empty. Tap "Load queue" above.'),
-                      ),
-                    );
-                  }
-                  return ListView.builder(
-                    itemCount: queue.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      final CorePlayerAudioSource source = queue[index];
-                      final bool isCurrent = index == queue.currentIndex;
-                      return ListTile(
-                        key: ValueKey<int>(index),
-                        leading: _TrackArtwork(artUri: source.artUri, size: 56, isCurrent: isCurrent, index: index),
-                        title: Text(
-                          source.title,
-                          style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal),
-                        ),
-                        subtitle: source.artist == null ? null : Text(source.artist!),
-                        trailing: isCurrent ? const Icon(Icons.equalizer) : null,
-                        onTap: () => _safe(() => _player.skipToIndex(index)),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
+                  )
+                else
+                  for (int index = 0; index < queue.length; index++)
+                    Builder(
+                      key: ValueKey<int>(index),
+                      builder: (BuildContext context) {
+                        final CorePlayerAudioSource source = queue[index];
+                        final bool isCurrent = index == queue.currentIndex;
+                        return ListTile(
+                          leading: _TrackArtwork(artUri: source.artUri, size: 56, isCurrent: isCurrent, index: index),
+                          title: Text(
+                            source.title,
+                            style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal),
+                          ),
+                          subtitle: source.artist == null ? null : Text(source.artist!),
+                          trailing: isCurrent ? const Icon(Icons.equalizer) : null,
+                          onTap: () => _safe(() => _player.skipToIndex(index)),
+                        );
+                      },
+                    ),
+              ],
+            );
+          },
         ),
       ),
     );
