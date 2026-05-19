@@ -18,6 +18,10 @@ mixin CorePlayerMediaKitPlayback on CorePlayer, CorePlayerMediaKitConcurrency {
   BehaviorSubject<double> get _volumeSubject;
   Never _throwAndEmit(CorePlayerFailure failure);
   MediaItem _toMediaItem(CoreAudioSource audioSource);
+  // Provided by [CorePlayerMediaKitNetwork]. A user-driven transport call
+  // must drop the network auto-resume eligibility flag so a pending
+  // resume-on-reconnect does not fight an explicit pause/play action.
+  void _clearNetworkAutoResume();
 
   @override
   Future<void> setVolume(double volume) async {
@@ -46,6 +50,10 @@ mixin CorePlayerMediaKitPlayback on CorePlayer, CorePlayerMediaKitConcurrency {
     if (_disposed) {
       _throwAndEmit(const PlayerDisposedFailure());
     }
+    // User-initiated pause invalidates any pending auto-resume. The
+    // [_clearNetworkAutoResume] hook is a no-op when called from inside a
+    // network-policy dispatch (the dispatcher manages the flag directly).
+    _clearNetworkAutoResume();
     await runOnNative(() => player.pause());
     CorePlayer.observer?.onPause(this);
   }
@@ -110,6 +118,10 @@ mixin CorePlayerMediaKitPlayback on CorePlayer, CorePlayerMediaKitConcurrency {
     if (_disposed) {
       _throwAndEmit(const PlayerDisposedFailure());
     }
+
+    // Explicit play from the user/UI invalidates a pending policy-driven
+    // resume — the user already resumed, the wrapper shouldn't re-fire.
+    _clearNetworkAutoResume();
 
     if (needToLoad) {
       await load(_audioSource!);
