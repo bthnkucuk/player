@@ -371,6 +371,7 @@ class _TrackHeader extends StatelessWidget {
           switch (source) {
             HttpAudioSource(:final url) => url.toString(),
             FileAudioSource(:final path) => path,
+            HlsAudioSource(:final manifestUrl) => manifestUrl.toString(),
           },
           style: Theme.of(
             context,

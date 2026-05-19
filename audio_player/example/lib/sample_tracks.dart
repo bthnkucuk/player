@@ -60,6 +60,31 @@ class SampleTracks {
     artUri: Uri.parse('https://picsum.photos/seed/soundhelix-3/600/600'),
   );
 
+  /// HLS audio rendition from Apple's public bipbop sample.
+  ///
+  /// Used by the HLS demo. This is an audio-only HLS rendition (AAC segments
+  /// behind an `.m3u8` manifest) — a VOD playlist hosted on
+  /// `devstreaming-cdn.apple.com`, which has been live since 2014 and is the
+  /// canonical reference stream Apple ships in every HLS spec update.
+  ///
+  /// VOD HLS gives the demo a finite, repeatable signal (the position bar
+  /// converges on a real duration once the demuxer reports back). For a true
+  /// live HLS feed swap in any rolling-manifest URL; libmpv handles both
+  /// transparently.
+  ///
+  /// Verify with:
+  ///   curl -I https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/a1/prog_index.m3u8
+  /// Expected: HTTP/1.1 200 + Content-Type: application/x-mpegURL
+  /// Verified: HTTP/1.1 200 OK + Content-Type: application/x-mpegURL
+  static final CoreAudioSource hlsLiveRadio = HlsAudioSource(
+    title: 'BipBop Audio (HLS)',
+    artist: 'Apple HLS reference',
+    manifestUrl: Uri.parse(
+      'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/a1/prog_index.m3u8',
+    ),
+    artUri: Uri.parse('https://picsum.photos/seed/hls-bipbop/600/600'),
+  );
+
   /// Default queue for the playlist demo.
   static final List<CoreAudioSource> playlist = <CoreAudioSource>[
     scienceFridayEpisode,
