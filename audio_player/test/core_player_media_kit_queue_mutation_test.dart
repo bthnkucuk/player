@@ -325,26 +325,72 @@ void main() {
   });
 
   group('moveItem', () {
-    test('move across currentIndex keeps the active item current', () async {
+    // Public contract: after moveItem(from, to), the source previously at
+    // `from` ends up at index `to` in the resulting queue. Matrix over all
+    // (from, to) combinations on a 4-item queue.
+    const matrix = <(int, int, List<CorePlayerAudioSource>)>[
+      (0, 1, [srcB, srcA, srcC, srcD]),
+      (0, 2, [srcB, srcC, srcA, srcD]),
+      (0, 3, [srcB, srcC, srcD, srcA]),
+      (1, 0, [srcB, srcA, srcC, srcD]),
+      (1, 2, [srcA, srcC, srcB, srcD]),
+      (1, 3, [srcA, srcC, srcD, srcB]),
+      (2, 0, [srcC, srcA, srcB, srcD]),
+      (2, 1, [srcA, srcC, srcB, srcD]),
+      (2, 3, [srcA, srcB, srcD, srcC]),
+      (3, 0, [srcD, srcA, srcB, srcC]),
+      (3, 1, [srcA, srcD, srcB, srcC]),
+      (3, 2, [srcA, srcB, srcD, srcC]),
+    ];
+
+    for (final entry in matrix) {
+      final (from, to, expected) = entry;
+      test('moveItem($from, $to) on [A,B,C,D] yields ${expected.map((s) => s.title).join(',')}', () async {
+        await primeQueue([srcA, srcB, srcC, srcD]);
+        await player.moveItem(from, to);
+        await Future<void>.delayed(Duration.zero);
+        expect(player.queue.sources, expected);
+      });
+    }
+
+    test('moveItem(0, 1) issues native move(0, 2) — mpv index translation', () async {
+      await primeQueue([srcA, srcB, srcC, srcD]);
+      clearInteractions(mockPlayer);
+      await player.moveItem(0, 1);
+      await Future<void>.delayed(Duration.zero);
+      // mpv's playlist-move inserts at `to - 0.5` post-removal; landing
+      // the source at final index 1 requires passing `to = 2`.
+      verify(() => mockPlayer.move(0, 2)).called(1);
+    });
+
+    test('moveItem(2, 0) issues native move(2, 0) — backward move unchanged', () async {
+      await primeQueue([srcA, srcB, srcC, srcD]);
+      clearInteractions(mockPlayer);
+      await player.moveItem(2, 0);
+      await Future<void>.delayed(Duration.zero);
+      // Backward moves: insertion at `to - 0.5 = -0.5` lands the item at
+      // final index 0 without needing an offset.
+      verify(() => mockPlayer.move(2, 0)).called(1);
+    });
+
+    test('moveItem(0, 3) issues native move(0, 4) for forward-to-end', () async {
+      await primeQueue([srcA, srcB, srcC, srcD]);
+      clearInteractions(mockPlayer);
+      await player.moveItem(0, 3);
+      await Future<void>.delayed(Duration.zero);
+      verify(() => mockPlayer.move(0, 4)).called(1);
+    });
+
+    test('move across currentIndex preserves the active item', () async {
       await primeQueue([srcA, srcB, srcC, srcD], index: 1);
       expect(player.audioSource, srcB);
-
-      // Move B (1) to position 3 (after C). After playlist-move, list becomes
-      // [A, C, B, D]. mpv preserves playlist-pos by item identity (B), so
-      // the new currentIndex is 2 in the mock.
-      // Drive the mock's index explicitly to mimic mpv's identity-preserving
-      // playlist-pos.
-      pl.index = 1;
-      await player.moveItem(1, 3);
+      await player.moveItem(1, 2);
       await Future<void>.delayed(Duration.zero);
-
       expect(player.queue.sources, [srcA, srcC, srcB, srcD]);
-      // The wrapper-side mirror lands the moved item at index 2 (to-1).
-      // The mock playlist broadcast still says index=1 because we don't
-      // model mpv's identity preservation in the test harness — but the
-      // wrapper-side queue projection is what callers observe. Assert the
-      // sources list is correct, which is what users see in the UI.
-      expect(player.queue.sources[2], srcB);
+      // The wrapper-side mirror lands B at index 2 (its new home). The
+      // mock harness does not model mpv's identity-preserving playlist-pos
+      // (the broadcast still carries index=pl.index), so this test pins
+      // the visible source order which is what app callers observe.
     });
 
     test('clamps out-of-range indices to the valid range', () async {
