@@ -203,9 +203,15 @@ class CorePlayerMediaKit extends CorePlayer with CorePlayerMediaKitConcurrency {
       final index = playlist.index.clamp(0, _sources.length - 1);
       final newQueue = CorePlayerQueue(_sources, currentIndex: index);
       final previousIndex = _queueStreamBacking.hasValue ? _queueStreamBacking.value.currentIndex : -1;
+      // Cache the previous active source BEFORE pushing the new queue so a
+      // mutation API call (removeAt / replaceAt) that swaps the source at
+      // the same index is still observable: comparing newSource against
+      // [_audioSource] catches "index stayed the same but the slot's source
+      // changed" — index-only diffing missed this case in Faz Q.
+      final previousSource = _audioSource;
       _queueStreamBacking.add(newQueue);
-      if (previousIndex != index) {
-        final newSource = _sources[index];
+      final newSource = _sources[index];
+      if (previousIndex != index || !identical(previousSource, newSource)) {
         _setAudioSource(newSource);
         CorePlayer.observer?.onLoad(this, newSource);
         currentAudioHandler?.emitMediaItem(_toMediaItem(newSource));
