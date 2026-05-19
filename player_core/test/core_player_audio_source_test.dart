@@ -169,6 +169,71 @@ void main() {
     });
   });
 
+  group('HlsAudioSource', () {
+    test('should construct with manifestUrl and required title', () {
+      final source = HlsAudioSource(
+        title: 'Live Stream',
+        manifestUrl: Uri.parse('https://example.com/live.m3u8'),
+      );
+
+      expect(source.title, 'Live Stream');
+      expect(source.manifestUrl, Uri.parse('https://example.com/live.m3u8'));
+      expect(source.artist, isNull);
+      expect(source.artUri, isNull);
+      expect(source.headers, isNull);
+      expect(source.estimatedDuration, isNull);
+    });
+
+    test('equality holds across two instances with the same fields', () {
+      final a = HlsAudioSource(
+        title: 'A',
+        manifestUrl: Uri.parse('https://example.com/a.m3u8'),
+        headers: const {'k': 'v'},
+      );
+      final b = HlsAudioSource(
+        title: 'A',
+        manifestUrl: Uri.parse('https://example.com/a.m3u8'),
+        headers: const {'k': 'v'},
+      );
+
+      expect(a, equals(b));
+      expect(a.hashCode, b.hashCode);
+    });
+
+    test('inequality when manifestUrl differs', () {
+      final a = HlsAudioSource(
+        title: 'A',
+        manifestUrl: Uri.parse('https://example.com/a.m3u8'),
+      );
+      final b = HlsAudioSource(
+        title: 'A',
+        manifestUrl: Uri.parse('https://example.com/b.m3u8'),
+      );
+
+      expect(a, isNot(equals(b)));
+    });
+
+    test('props expose manifestUrl, title, artist, artUri, '
+        'estimatedDuration, headers', () {
+      final source = HlsAudioSource(
+        title: 'Title',
+        manifestUrl: Uri.parse('https://example.com/x.m3u8'),
+        artist: 'Artist',
+        estimatedDuration: const Duration(seconds: 90),
+        headers: const {'key': 'value'},
+      );
+
+      expect(source.props, [
+        Uri.parse('https://example.com/x.m3u8'),
+        'Title',
+        'Artist',
+        null,
+        const Duration(seconds: 90),
+        {'key': 'value'},
+      ]);
+    });
+  });
+
   group('Sealed type discrimination', () {
     test('HttpAudioSource and FileAudioSource are not equal', () {
       // Different subtypes with the same title are never equal — they
@@ -182,9 +247,26 @@ void main() {
       expect(http, isNot(equals(file)));
     });
 
+    test('HttpAudioSource and HlsAudioSource are not equal even when the '
+        'transport URL string matches', () {
+      // Sealed-type discrimination: two subtypes carrying the same URI
+      // string must never compare equal — they go through different demuxer
+      // paths (progressive HTTP vs HLS manifest).
+      final http = HttpAudioSource(
+        title: 'Same',
+        url: Uri.parse('https://example.com/same.m3u8'),
+      );
+      final hls = HlsAudioSource(
+        title: 'Same',
+        manifestUrl: Uri.parse('https://example.com/same.m3u8'),
+      );
+
+      expect(http, isNot(equals(hls)));
+    });
+
     test('exhaustive switch on the sealed type compiles and dispatches', () {
       // Compile-time check: this switch is exhaustive over the sealed
-      // hierarchy. Faz S2/S3 must add arms when they ship new subtypes.
+      // hierarchy. Faz S3 must add an arm when LiveAudioSource ships.
       final CoreAudioSource source = HttpAudioSource(
         title: 'X',
         url: Uri.parse('https://example.com/x.mp3'),
@@ -192,6 +274,7 @@ void main() {
       final result = switch (source) {
         HttpAudioSource(:final url) => 'http:${url.toString()}',
         FileAudioSource(:final path) => 'file:$path',
+        HlsAudioSource(:final manifestUrl) => 'hls:${manifestUrl.toString()}',
       };
       expect(result, 'http:https://example.com/x.mp3');
     });

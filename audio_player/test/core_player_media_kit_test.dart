@@ -533,6 +533,57 @@ void main() {
           ),
         ).called(1);
       });
+
+      test('HlsAudioSource opens a Playlist whose Media URI is the manifest '
+          'URL', () async {
+        // Faz S2: HLS sources are peers of HttpAudioSource. The manifest URL
+        // must reach the underlying Media verbatim so libmpv's HLS demuxer
+        // engages.
+        final src = HlsAudioSource(
+          title: 'live',
+          manifestUrl: Uri.parse('https://example.com/live.m3u8'),
+        );
+        await corePlayer.load(src);
+        verify(
+          () => mockPlayer.open(
+            any(
+              that: predicate<Playlist>(
+                (p) =>
+                    p.medias.length == 1 &&
+                    p.medias.first.uri ==
+                        'https://example.com/live.m3u8',
+                'Playlist with one Media pointing at the .m3u8 manifest',
+              ),
+            ),
+            play: false,
+          ),
+        ).called(1);
+      });
+
+      test('HlsAudioSource forwards headers through to its Media', () async {
+        final src = HlsAudioSource(
+          title: 'live',
+          manifestUrl: Uri.parse('https://example.com/secure.m3u8'),
+          headers: const {'Authorization': 'Bearer hls-token'},
+        );
+        await corePlayer.load(src);
+        verify(
+          () => mockPlayer.open(
+            any(
+              that: predicate<Playlist>(
+                (p) =>
+                    p.medias.length == 1 &&
+                    p.medias.first.uri ==
+                        'https://example.com/secure.m3u8' &&
+                    p.medias.first.httpHeaders?['Authorization'] ==
+                        'Bearer hls-token',
+                'HLS Playlist with manifest URI + Authorization header',
+              ),
+            ),
+            play: false,
+          ),
+        ).called(1);
+      });
     });
 
     group('play', () {
