@@ -102,3 +102,18 @@ final class SnapshotMalformedFailure extends CorePlayerFailure {
 final class LiveSourceNotReadyFailure extends CorePlayerFailure {
   const LiveSourceNotReadyFailure(super.message);
 }
+
+/// Thrown by feature APIs (e.g. [CorePlayer.setEqualizerBands]) when the
+/// active engine does not implement the requested capability. Consumers
+/// should pre-gate on the matching [CorePlayerCapabilities] flag — this
+/// failure is the runtime backstop for code paths that didn't.
+final class UnsupportedFeatureFailure extends CorePlayerFailure {
+  const UnsupportedFeatureFailure(super.message);
+}
+
+/// Thrown by [CorePlayer.setEqualizerBands] when the supplied band list is
+/// malformed (wrong length). Out-of-range gains are clamped rather than
+/// rejected; only structural input errors raise this.
+final class InvalidEqualizerInputFailure extends CorePlayerFailure {
+  const InvalidEqualizerInputFailure(super.message);
+}

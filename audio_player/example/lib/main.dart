@@ -6,6 +6,7 @@ import 'package:audio_player/audio_player.dart';
 import 'demos/auto_radio_and_position_stream.dart';
 import 'demos/capabilities.dart';
 import 'demos/debug_logs.dart';
+import 'demos/equalizer.dart';
 import 'demos/hls.dart';
 import 'demos/live_audio_source.dart';
 import 'demos/raw_media_kit.dart';
@@ -163,6 +164,13 @@ class HomePage extends StatelessWidget {
       icon: Icons.stream,
       builder: _buildLiveAudioSource,
     ),
+    _Demo(
+      title: 'Equalizer',
+      subtitle:
+          '10-band parametric EQ — slide bands in real time via libmpv `af`',
+      icon: Icons.equalizer,
+      builder: _buildEqualizer,
+    ),
   ];
 
   static Widget _buildSingleTrack(BuildContext _) => const SingleTrackDemo();
@@ -180,6 +188,7 @@ class HomePage extends StatelessWidget {
   static Widget _buildHls(BuildContext _) => const HlsDemo();
   static Widget _buildLiveAudioSource(BuildContext _) =>
       const LiveAudioSourceDemo();
+  static Widget _buildEqualizer(BuildContext _) => const EqualizerDemo();
 
   @override
   Widget build(BuildContext context) {

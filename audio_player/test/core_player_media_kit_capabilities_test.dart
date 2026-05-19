@@ -138,10 +138,10 @@ void main() {
     });
 
     test(
-      'supportsEqualizer is false (libmpv supports it but the wrapper has not '
-      'exposed a typed setter)',
+      'supportsEqualizer is true (wrapper exposes setEqualizerBands via '
+      'libmpv af=equalizer=...)',
       () {
-        expect(player.capabilities.supportsEqualizer, isFalse);
+        expect(player.capabilities.supportsEqualizer, isTrue);
       },
     );
 

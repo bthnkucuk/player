@@ -36,9 +36,10 @@ class CorePlayerCapabilities extends Equatable {
   /// FairPlay). Always false today.
   final bool supportsDrm;
 
-  /// True when [setEqualizerBands] (or similar) accepts band-gain input.
-  /// libmpv supports `--af=equalizer=...` but the wrapper has not yet
-  /// exposed it; flag stays false until that lands.
+  /// True when [CorePlayer.setEqualizerBands] accepts band-gain input at
+  /// runtime. Engines that lack runtime EQ keep this false; the
+  /// libmpv-backed wrapper flips it on once the `af=equalizer=...` plumbing
+  /// is wired in.
   final bool supportsEqualizer;
 
   @override

@@ -20,6 +20,7 @@ part 'core_player_media_kit_playback.dart';
 part 'core_player_media_kit_mutation.dart';
 part 'core_player_media_kit_capabilities.dart';
 part 'core_player_media_kit_live.dart';
+part 'core_player_media_kit_equalizer.dart';
 
 /// Position-restoration SLA for [CorePlayerMediaKit.replaceAt] when
 /// `preservePosition: true` is requested for the active index. Buffer-aware
@@ -644,6 +645,48 @@ class CorePlayerMediaKit extends CorePlayer
   late final ValueStream<CorePlayerLoopMode> loopModeStream =
       _loopModeSubject.stream;
 
+  /// Backs the 10-band equalizer. Seeded flat so callers reading
+  /// [equalizerBands] before any [setEqualizerBands] still get a 10-element
+  /// snapshot. Wrapped in an unmodifiable list so consumers cannot mutate
+  /// the seed in place (which would corrupt every other subscriber's view).
+  final BehaviorSubject<List<double>> _equalizerSubject =
+      BehaviorSubject<List<double>>.seeded(_kEqualizerFlat);
+
+  @override
+  List<double> get equalizerBands => _equalizerSubject.value;
+
+  @override
+  Stream<List<double>> get equalizerBandsStream => _equalizerSubject.stream;
+
+  @override
+  Future<void> setEqualizerBands(List<double> gainsDb) async {
+    if (_disposed) {
+      _throwAndEmit(const PlayerDisposedFailure());
+    }
+    if (gainsDb.length != 10) {
+      _throwAndEmit(
+        InvalidEqualizerInputFailure(
+          'Equalizer expects exactly 10 bands; got ${gainsDb.length}',
+        ),
+      );
+    }
+    // Clamp BEFORE building the libmpv spec so the spec, the subject
+    // emission, and the cached `equalizerBands` view all agree.
+    final clamped = List<double>.unmodifiable(
+      gainsDb.map((g) => g.clamp(-12.0, 12.0).toDouble()),
+    );
+    final spec = _formatEqualizerSpec(clamped);
+    try {
+      await runOnNative(() => _equalizerApplier(player, spec));
+    } on UnsupportedFeatureFailure catch (failure) {
+      _throwAndEmit(failure);
+    }
+    if (_disposed) return;
+    if (!_equalizerSubject.isClosed) {
+      _equalizerSubject.add(clamped);
+    }
+  }
+
   void _updatePlayerState(CorePlayerState state) {
     final previous = _playerStateSubject.value;
     _playerStateSubject.add(state);
@@ -1040,6 +1083,7 @@ class CorePlayerMediaKit extends CorePlayer
     await _rateSubject.close();
     await _volumeSubject.close();
     await _loopModeSubject.close();
+    await _equalizerSubject.close();
     await _queueStreamBacking.close();
     await _audioSourceSubject.close();
     await _shuffleSubject.close();

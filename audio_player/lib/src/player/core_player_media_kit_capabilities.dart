@@ -12,9 +12,9 @@ part of 'core_player_media_kit.dart';
 /// - `supportsLiveSource` / `supportsHls` stay TRUE even before Faz S2 /
 ///   S3 land in this branch — they advertise engine capability so
 ///   sibling consumer apps can ship feature-gated UI ahead of the wiring.
-/// - `supportsEqualizer` stays FALSE even though libmpv supports
-///   `--af=equalizer=...` — the wrapper has not yet exposed a typed
-///   `setEqualizerBands` API and the flag MUST mirror the public surface.
+/// - `supportsEqualizer` flips TRUE once [CorePlayer.setEqualizerBands]
+///   is wired through libmpv's `af=equalizer=...` property — the flag
+///   mirrors the public surface so feature-gated UI can rely on it.
 /// - `supportsCrossfade` / `supportsCast` / `supportsDrm` are engine
 ///   non-support: libmpv cannot do them.
 const CorePlayerCapabilities _kMediaKitCapabilities = CorePlayerCapabilities(
@@ -23,5 +23,5 @@ const CorePlayerCapabilities _kMediaKitCapabilities = CorePlayerCapabilities(
   supportsCrossfade: false,
   supportsCast: false,
   supportsDrm: false,
-  supportsEqualizer: false,
+  supportsEqualizer: true,
 );
