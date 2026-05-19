@@ -78,6 +78,12 @@ void main() {
     test(
       'should drive AudioService.init + AudioSession setup, expose a non-null handler instance, '
       'and CoreAudioHandler.initialize() is idempotent on subsequent calls',
+      // audio_service_platform_interface routes to NoOpAudioService on Linux
+      // and Windows (audio_service_platform_interface.dart:18-21), so the
+      // MethodChannel `configure` call asserted below never fires there. The
+      // production code is correct on those platforms — there's just no real
+      // platform channel to observe. CI on ubuntu-latest hits this skip.
+      testOn: '!linux && !windows',
       () async {
         expect(CoreAudioHandler.instance, isNull);
 
