@@ -578,22 +578,6 @@ class CorePlayerMediaKit extends CorePlayer
   late final ValueStream<CorePlayerLoopMode> loopModeStream = _loopModeSubject.stream;
 
   @override
-  Future<void> setLoopMode(CorePlayerLoopMode mode) async {
-    if (_disposed) _throwAndEmit(const PlayerDisposedFailure());
-    final PlaylistMode native;
-    switch (mode) {
-      case CorePlayerLoopMode.off:
-        native = PlaylistMode.none;
-      case CorePlayerLoopMode.one:
-        native = PlaylistMode.single;
-      case CorePlayerLoopMode.all:
-        native = PlaylistMode.loop;
-    }
-    await runOnNative(() => player.setPlaylistMode(native));
-    _loopModeSubject.add(mode);
-  }
-
-  @override
   Future<void> setPlaybackSpeed(double speed) async {
     if (_disposed) {
       _throwAndEmit(const PlayerDisposedFailure());
