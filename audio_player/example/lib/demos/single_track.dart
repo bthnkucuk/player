@@ -147,198 +147,199 @@ class _SingleTrackDemoState extends State<SingleTrackDemo> {
     return Scaffold(
       appBar: AppBar(title: const Text('Single track')),
       body: SafeArea(
-        child: Padding(
+        child: ListView(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            children: <Widget>[
-              _TrackHeader(source: SampleTracks.scienceFridayEpisode),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: _loadAndPlay,
-                icon: const Icon(Icons.download),
-                label: const Text('loadAndPlay()'),
-              ),
-              const SizedBox(height: 8),
-              StreamBuilder<CorePlayerState>(
-                stream: _player.playerStateStream,
-                initialData: _player.playerState,
-                builder:
-                    (
-                      BuildContext context,
-                      AsyncSnapshot<CorePlayerState> stateSnap,
-                    ) {
-                      final CorePlayerState state =
-                          stateSnap.data ?? CorePlayerState.idle;
-                      return StreamBuilder<bool>(
-                        stream: _player.playingStream,
-                        initialData: _player.isPlaying,
-                        builder:
-                            (
-                              BuildContext context,
-                              AsyncSnapshot<bool> playingSnap,
-                            ) {
-                              return PlayPauseStopButtons(
-                                state: state,
-                                isPlaying: playingSnap.data ?? false,
-                                onPlay: () => _player.play(),
-                                onPause: () => _player.pause(),
-                                onStop: () => _player.stop(),
-                              );
-                            },
-                      );
-                    },
-              ),
-              StreamBuilder<Duration>(
-                stream: _player.positionStream,
-                initialData: _player.position,
-                builder:
-                    (BuildContext context, AsyncSnapshot<Duration> posSnap) {
-                      return StreamBuilder<Duration>(
-                        stream: _player.durationStream,
-                        initialData: _player.duration,
-                        builder:
-                            (
-                              BuildContext context,
-                              AsyncSnapshot<Duration> durSnap,
-                            ) {
-                              return StreamBuilder<Duration>(
-                                stream: _player.bufferStream,
-                                initialData: _player.buffer,
-                                builder:
-                                    (
-                                      BuildContext context,
-                                      AsyncSnapshot<Duration> bufSnap,
-                                    ) {
-                                      return SeekBar(
-                                        duration: durSnap.data ?? Duration.zero,
-                                        position: posSnap.data ?? Duration.zero,
-                                        bufferedPosition:
-                                            bufSnap.data ?? Duration.zero,
-                                        onSeek: _seekTo,
-                                      );
-                                    },
-                              );
-                            },
-                      );
-                    },
-              ),
-              const SizedBox(height: 12),
-              // Instrumentation: hardcoded seek buttons for deterministic repro.
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: <Widget>[
-                  OutlinedButton(
-                    onPressed: () => _seekTo(const Duration(minutes: 5)),
-                    child: const Text('Seek 5m'),
-                  ),
-                  OutlinedButton(
-                    onPressed: () => _seekTo(const Duration(minutes: 30)),
-                    child: const Text('Seek 30m'),
-                  ),
-                  OutlinedButton(
-                    onPressed: () => _seekTo(const Duration(hours: 1)),
-                    child: const Text('Seek 1h'),
-                  ),
-                  OutlinedButton(
-                    onPressed: () {
-                      setState(_eventLog.clear);
-                    },
-                    child: const Text('Clear log'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              StreamBuilder<double>(
-                stream: _player.playbackSpeedStream,
-                initialData: _player.playbackSpeed,
-                builder: (BuildContext context, AsyncSnapshot<double> snap) {
-                  return SpeedDropdown(
-                    speed: snap.data ?? 1.0,
-                    onChanged: _player.setPlaybackSpeed,
-                  );
-                },
-              ),
-              const SizedBox(height: 8),
-              StreamBuilder<double>(
-                stream: _player.volumeStream,
-                initialData: _player.volume,
-                builder: (BuildContext context, AsyncSnapshot<double> snap) {
-                  return VolumeSlider(
-                    volume: snap.data ?? 1.0,
-                    onChanged: _player.setVolume,
-                  );
-                },
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  const Text('Loop:'),
-                  StreamBuilder<CorePlayerLoopMode>(
-                    stream: _player.loopModeStream,
-                    initialData: _player.loopMode,
-                    builder:
-                        (
-                          BuildContext context,
-                          AsyncSnapshot<CorePlayerLoopMode> snap,
-                        ) {
-                          return LoopModeButton(
-                            mode: snap.data ?? CorePlayerLoopMode.off,
-                            onChanged: _player.setLoopMode,
-                          );
-                        },
-                  ),
-                ],
-              ),
-              if (_lastError != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    'Error: $_lastError',
-                    style: const TextStyle(color: Colors.red),
-                  ),
+          children: <Widget>[
+            _TrackHeader(source: SampleTracks.scienceFridayEpisode),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _loadAndPlay,
+              icon: const Icon(Icons.download),
+              label: const Text('loadAndPlay()'),
+            ),
+            const SizedBox(height: 8),
+            StreamBuilder<CorePlayerState>(
+              stream: _player.playerStateStream,
+              initialData: _player.playerState,
+              builder:
+                  (
+                    BuildContext context,
+                    AsyncSnapshot<CorePlayerState> stateSnap,
+                  ) {
+                    final CorePlayerState state =
+                        stateSnap.data ?? CorePlayerState.idle;
+                    return StreamBuilder<bool>(
+                      stream: _player.playingStream,
+                      initialData: _player.isPlaying,
+                      builder:
+                          (
+                            BuildContext context,
+                            AsyncSnapshot<bool> playingSnap,
+                          ) {
+                            return PlayPauseStopButtons(
+                              state: state,
+                              isPlaying: playingSnap.data ?? false,
+                              onPlay: () => _player.play(),
+                              onPause: () => _player.pause(),
+                              onStop: () => _player.stop(),
+                            );
+                          },
+                    );
+                  },
+            ),
+            StreamBuilder<Duration>(
+              stream: _player.positionStream,
+              initialData: _player.position,
+              builder:
+                  (BuildContext context, AsyncSnapshot<Duration> posSnap) {
+                    return StreamBuilder<Duration>(
+                      stream: _player.durationStream,
+                      initialData: _player.duration,
+                      builder:
+                          (
+                            BuildContext context,
+                            AsyncSnapshot<Duration> durSnap,
+                          ) {
+                            return StreamBuilder<Duration>(
+                              stream: _player.bufferStream,
+                              initialData: _player.buffer,
+                              builder:
+                                  (
+                                    BuildContext context,
+                                    AsyncSnapshot<Duration> bufSnap,
+                                  ) {
+                                    return SeekBar(
+                                      duration: durSnap.data ?? Duration.zero,
+                                      position: posSnap.data ?? Duration.zero,
+                                      bufferedPosition:
+                                          bufSnap.data ?? Duration.zero,
+                                      onSeek: _seekTo,
+                                    );
+                                  },
+                            );
+                          },
+                    );
+                  },
+            ),
+            const SizedBox(height: 12),
+            // Instrumentation: hardcoded seek buttons for deterministic repro.
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: <Widget>[
+                OutlinedButton(
+                  onPressed: () => _seekTo(const Duration(minutes: 5)),
+                  child: const Text('Seek 5m'),
                 ),
-              const SizedBox(height: 12),
-              // In-app event log so we don't depend on terminal capture.
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: ListView.builder(
-                    itemCount: _eventLog.length,
-                    itemBuilder: (BuildContext c, int i) {
-                      final String line = _eventLog[i];
-                      Color color = Colors.greenAccent;
-                      if (line.contains('SEEK_RESOLVED')) {
-                        color = Colors.yellowAccent;
-                      } else if (line.contains('ERROR') ||
-                          line.contains('THROW')) {
-                        color = Colors.redAccent;
-                      } else if (line.contains('STATE')) {
-                        color = Colors.lightBlueAccent;
-                      } else if (line.contains('CALL ')) {
-                        color = Colors.orangeAccent;
-                      }
-                      return Text(
-                        line,
-                        style: TextStyle(
-                          color: color,
-                          fontFamily: 'monospace',
-                          fontSize: 11,
-                        ),
-                      );
-                    },
-                  ),
+                OutlinedButton(
+                  onPressed: () => _seekTo(const Duration(minutes: 30)),
+                  child: const Text('Seek 30m'),
+                ),
+                OutlinedButton(
+                  onPressed: () => _seekTo(const Duration(hours: 1)),
+                  child: const Text('Seek 1h'),
+                ),
+                OutlinedButton(
+                  onPressed: () {
+                    setState(_eventLog.clear);
+                  },
+                  child: const Text('Clear log'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            StreamBuilder<double>(
+              stream: _player.playbackSpeedStream,
+              initialData: _player.playbackSpeed,
+              builder: (BuildContext context, AsyncSnapshot<double> snap) {
+                return SpeedDropdown(
+                  speed: snap.data ?? 1.0,
+                  onChanged: _player.setPlaybackSpeed,
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            StreamBuilder<double>(
+              stream: _player.volumeStream,
+              initialData: _player.volume,
+              builder: (BuildContext context, AsyncSnapshot<double> snap) {
+                return VolumeSlider(
+                  volume: snap.data ?? 1.0,
+                  onChanged: _player.setVolume,
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                const Text('Loop:'),
+                StreamBuilder<CorePlayerLoopMode>(
+                  stream: _player.loopModeStream,
+                  initialData: _player.loopMode,
+                  builder:
+                      (
+                        BuildContext context,
+                        AsyncSnapshot<CorePlayerLoopMode> snap,
+                      ) {
+                        return LoopModeButton(
+                          mode: snap.data ?? CorePlayerLoopMode.off,
+                          onChanged: _player.setLoopMode,
+                        );
+                      },
+                ),
+              ],
+            ),
+            if (_lastError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Error: $_lastError',
+                  style: const TextStyle(color: Colors.red),
                 ),
               ),
-            ],
-          ),
+            const SizedBox(height: 12),
+            // In-app event log so we don't depend on terminal capture.
+            // Bounded height + internal ListView so the log scrolls on its
+            // own without forcing the outer ListView to grow unbounded.
+            SizedBox(
+              height: 240,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ListView.builder(
+                  itemCount: _eventLog.length,
+                  itemBuilder: (BuildContext c, int i) {
+                    final String line = _eventLog[i];
+                    Color color = Colors.greenAccent;
+                    if (line.contains('SEEK_RESOLVED')) {
+                      color = Colors.yellowAccent;
+                    } else if (line.contains('ERROR') ||
+                        line.contains('THROW')) {
+                      color = Colors.redAccent;
+                    } else if (line.contains('STATE')) {
+                      color = Colors.lightBlueAccent;
+                    } else if (line.contains('CALL ')) {
+                      color = Colors.orangeAccent;
+                    }
+                    return Text(
+                      line,
+                      style: TextStyle(
+                        color: color,
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
