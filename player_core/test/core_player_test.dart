@@ -80,6 +80,15 @@ class _FakeCorePlayer extends CorePlayer {
   Future<void> setVolume(double volume) async {}
 
   @override
+  List<double> get equalizerBands => List<double>.filled(10, 0.0);
+
+  @override
+  Stream<List<double>> get equalizerBandsStream => const Stream<List<double>>.empty();
+
+  @override
+  Future<void> setEqualizerBands(List<double> gainsDb) async {}
+
+  @override
   CorePlayerLoopMode get loopMode => CorePlayerLoopMode.off;
 
   @override
