@@ -183,6 +183,7 @@ class _ObserverDemoState extends State<ObserverDemo> {
                             AsyncSnapshot<bool> playingSnap,
                           ) {
                             return PlayPauseStopButtons(
+                              player: _player,
                               state: stateSnap.data ?? CorePlayerState.idle,
                               isPlaying: playingSnap.data ?? false,
                               onPlay: () => _player.play(),

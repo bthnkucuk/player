@@ -230,6 +230,7 @@ class _ResumeFromColdStartDemoState extends State<ResumeFromColdStartDemo> {
                     initialData: player.isPlaying,
                     builder: (context, playingSnap) {
                       return PlayPauseStopButtons(
+                        player: player,
                         state: stateSnap.data ?? CorePlayerState.idle,
                         isPlaying: playingSnap.data ?? false,
                         onPlay: () => player.play(),

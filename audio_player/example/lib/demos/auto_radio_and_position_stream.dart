@@ -272,6 +272,7 @@ class _PlayPauseRow extends StatelessWidget {
           initialData: player.isPlaying,
           builder: (BuildContext context, AsyncSnapshot<bool> playingSnap) {
             return PlayPauseStopButtons(
+              player: player,
               state: state,
               isPlaying: playingSnap.data ?? false,
               onPlay: () => player.play(),

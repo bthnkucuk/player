@@ -92,28 +92,14 @@ class _PlaylistDemoState extends State<PlaylistDemo> {
                             stream: _player.playingStream,
                             initialData: _player.isPlaying,
                             builder: (BuildContext context, AsyncSnapshot<bool> playingSnap) {
-                              return Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: <Widget>[
-                                  IconButton(
-                                    iconSize: 40,
-                                    icon: const Icon(Icons.skip_previous),
-                                    onPressed: () => _safe(_player.skipToPrevious),
-                                  ),
-                                  PlayPauseStopButtons(
-                                    state: stateSnap.data ?? CorePlayerState.idle,
-                                    isPlaying: playingSnap.data ?? false,
-                                    onPlay: () => _safe(_player.play),
-                                    onPause: () => _safe(_player.pause),
-                                    onStop: () => _safe(_player.stop),
-                                    showStop: false,
-                                  ),
-                                  IconButton(
-                                    iconSize: 40,
-                                    icon: const Icon(Icons.skip_next),
-                                    onPressed: () => _safe(_player.skipToNext),
-                                  ),
-                                ],
+                              return PlayPauseStopButtons(
+                                player: _player,
+                                state: stateSnap.data ?? CorePlayerState.idle,
+                                isPlaying: playingSnap.data ?? false,
+                                onPlay: () => _safe(_player.play),
+                                onPause: () => _safe(_player.pause),
+                                onStop: () => _safe(_player.stop),
+                                showStop: false,
                               );
                             },
                           );

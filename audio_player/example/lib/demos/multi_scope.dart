@@ -156,6 +156,7 @@ class _ScopePane extends StatelessWidget {
                 initialData: player.isPlaying,
                 builder: (BuildContext context, AsyncSnapshot<bool> playingSnap) {
                   return PlayPauseStopButtons(
+                    player: player,
                     state: stateSnap.data ?? CorePlayerState.idle,
                     isPlaying: playingSnap.data ?? false,
                     onPlay: () async {
