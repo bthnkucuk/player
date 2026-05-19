@@ -35,32 +35,60 @@ class PlayPauseStopButtons extends StatelessWidget {
       primary = const SizedBox(
         width: 56,
         height: 56,
-        child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()),
+        child: Padding(
+          padding: EdgeInsets.all(8),
+          child: CircularProgressIndicator(),
+        ),
       );
     } else if (state == CorePlayerState.completed) {
-      primary = IconButton(iconSize: 56, icon: const Icon(Icons.replay), onPressed: onPlay);
+      primary = IconButton(
+        iconSize: 56,
+        icon: const Icon(Icons.replay),
+        onPressed: onPlay,
+      );
     } else if (isPlaying) {
-      primary = IconButton(iconSize: 56, icon: const Icon(Icons.pause_circle_filled), onPressed: onPause);
+      primary = IconButton(
+        iconSize: 56,
+        icon: const Icon(Icons.pause_circle_filled),
+        onPressed: onPause,
+      );
     } else {
-      primary = IconButton(iconSize: 56, icon: const Icon(Icons.play_circle_filled), onPressed: onPlay);
+      primary = IconButton(
+        iconSize: 56,
+        icon: const Icon(Icons.play_circle_filled),
+        onPressed: onPlay,
+      );
     }
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: <Widget>[
-        _SeekRelativeButton(player: player, icon: Icons.replay_10, delta: -_seekStep),
-        const SizedBox(width: 8),
-        _SkipButton(player: player, isNext: false),
-        const SizedBox(width: 8),
-        primary,
+        Flexible(
+          child: _SeekRelativeButton(
+            player: player,
+            icon: Icons.replay_10,
+            delta: -_seekStep,
+          ),
+        ),
+        Flexible(child: _SkipButton(player: player, isNext: false)),
+        Flexible(child: primary),
         if (showStop) ...<Widget>[
-          const SizedBox(width: 8),
-          IconButton(iconSize: 40, icon: const Icon(Icons.stop_circle), onPressed: onStop),
+          Flexible(
+            child: IconButton(
+              iconSize: 40,
+              icon: const Icon(Icons.stop_circle),
+              onPressed: onStop,
+            ),
+          ),
         ],
-        const SizedBox(width: 8),
-        _SkipButton(player: player, isNext: true),
-        const SizedBox(width: 8),
-        _SeekRelativeButton(player: player, icon: Icons.forward_10, delta: _seekStep),
+        Flexible(child: _SkipButton(player: player, isNext: true)),
+        Flexible(
+          child: _SeekRelativeButton(
+            player: player,
+            icon: Icons.forward_10,
+            delta: _seekStep,
+          ),
+        ),
       ],
     );
   }
@@ -89,7 +117,9 @@ class _SkipButton extends StatelessWidget {
             iconSize: 36,
             icon: Icon(isNext ? Icons.skip_next : Icons.skip_previous),
             onPressed: enabled
-                ? (isNext ? () => player.skipToNext() : () => player.skipToPrevious())
+                ? (isNext
+                      ? () => player.skipToNext()
+                      : () => player.skipToPrevious())
                 : null,
           ),
         );
@@ -99,7 +129,11 @@ class _SkipButton extends StatelessWidget {
 }
 
 class _SeekRelativeButton extends StatelessWidget {
-  const _SeekRelativeButton({required this.player, required this.icon, required this.delta});
+  const _SeekRelativeButton({
+    required this.player,
+    required this.icon,
+    required this.delta,
+  });
 
   final CorePlayer player;
   final IconData icon;
@@ -140,7 +174,11 @@ Duration _clampDuration(Duration value, Duration min, Duration max) {
 
 /// Drop-down for playback speed.
 class SpeedDropdown extends StatelessWidget {
-  const SpeedDropdown({required this.speed, required this.onChanged, super.key});
+  const SpeedDropdown({
+    required this.speed,
+    required this.onChanged,
+    super.key,
+  });
 
   final double speed;
   final ValueChanged<double> onChanged;
@@ -149,7 +187,9 @@ class SpeedDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double rounded = _speeds.reduce((double a, double b) => (a - speed).abs() < (b - speed).abs() ? a : b);
+    final double rounded = _speeds.reduce(
+      (double a, double b) => (a - speed).abs() < (b - speed).abs() ? a : b,
+    );
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -158,7 +198,8 @@ class SpeedDropdown extends StatelessWidget {
         DropdownButton<double>(
           value: rounded,
           items: <DropdownMenuItem<double>>[
-            for (final double s in _speeds) DropdownMenuItem<double>(value: s, child: Text('${s}x')),
+            for (final double s in _speeds)
+              DropdownMenuItem<double>(value: s, child: Text('${s}x')),
           ],
           onChanged: (double? value) {
             if (value != null) onChanged(value);
@@ -171,7 +212,11 @@ class SpeedDropdown extends StatelessWidget {
 
 /// Horizontal slider for volume [0.0, 1.0].
 class VolumeSlider extends StatelessWidget {
-  const VolumeSlider({required this.volume, required this.onChanged, super.key});
+  const VolumeSlider({
+    required this.volume,
+    required this.onChanged,
+    super.key,
+  });
 
   final double volume;
   final ValueChanged<double> onChanged;
@@ -182,7 +227,12 @@ class VolumeSlider extends StatelessWidget {
       children: <Widget>[
         const Icon(Icons.volume_down),
         Expanded(
-          child: Slider(min: 0, max: 1, value: volume.clamp(0.0, 1.0), onChanged: onChanged),
+          child: Slider(
+            min: 0,
+            max: 1,
+            value: volume.clamp(0.0, 1.0),
+            onChanged: onChanged,
+          ),
         ),
         const Icon(Icons.volume_up),
       ],
@@ -192,14 +242,20 @@ class VolumeSlider extends StatelessWidget {
 
 /// Cycle button: off → one → all → off …
 class LoopModeButton extends StatelessWidget {
-  const LoopModeButton({required this.mode, required this.onChanged, super.key});
+  const LoopModeButton({
+    required this.mode,
+    required this.onChanged,
+    super.key,
+  });
 
   final CorePlayerLoopMode mode;
   final ValueChanged<CorePlayerLoopMode> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final Color color = mode == CorePlayerLoopMode.off ? Colors.grey : Theme.of(context).colorScheme.primary;
+    final Color color = mode == CorePlayerLoopMode.off
+        ? Colors.grey
+        : Theme.of(context).colorScheme.primary;
     final IconData icon = switch (mode) {
       CorePlayerLoopMode.off => Icons.repeat,
       CorePlayerLoopMode.one => Icons.repeat_one,
@@ -223,14 +279,20 @@ class LoopModeButton extends StatelessWidget {
 
 /// Toggle button for shuffle.
 class ShuffleButton extends StatelessWidget {
-  const ShuffleButton({required this.enabled, required this.onChanged, super.key});
+  const ShuffleButton({
+    required this.enabled,
+    required this.onChanged,
+    super.key,
+  });
 
   final bool enabled;
   final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final Color color = enabled ? Theme.of(context).colorScheme.primary : Colors.grey;
+    final Color color = enabled
+        ? Theme.of(context).colorScheme.primary
+        : Colors.grey;
     return IconButton(
       icon: Icon(Icons.shuffle, color: color),
       tooltip: 'Shuffle: ${enabled ? 'on' : 'off'}',
