@@ -17,4 +17,12 @@ mixin CorePlayerMediaKitPlayback on CorePlayer, CorePlayerMediaKitConcurrency {
   BehaviorSubject<double> get _volumeSubject;
   Never _throwAndEmit(CorePlayerFailure failure);
   MediaItem _toMediaItem(CorePlayerAudioSource audioSource);
+
+  @override
+  Future<void> setVolume(double volume) async {
+    if (_disposed) _throwAndEmit(const PlayerDisposedFailure());
+    final clamped = volume.clamp(0.0, 1.0);
+    await runOnNative(() => player.setVolume(clamped * 100)); // media_kit uses 0-100 scale
+    _volumeSubject.add(clamped);
+  }
 }
