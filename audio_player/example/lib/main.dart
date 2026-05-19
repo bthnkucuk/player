@@ -8,6 +8,7 @@ import 'demos/raw_media_kit.dart';
 import 'demos/multi_scope.dart';
 import 'demos/observer.dart';
 import 'demos/playlist.dart';
+import 'demos/resume_from_cold_start.dart';
 import 'demos/single_track.dart';
 
 /// App-wide Talker instance. Wired to [CorePlayerConfiguration.logCallback]
@@ -118,6 +119,12 @@ class HomePage extends StatelessWidget {
       icon: Icons.science,
       builder: _buildRawMediaKit,
     ),
+    _Demo(
+      title: 'Resume from cold start',
+      subtitle: 'snapshot() / restore() — Suno-tier resume-where-you-left-off',
+      icon: Icons.restore,
+      builder: _buildResumeFromColdStart,
+    ),
   ];
 
   static Widget _buildSingleTrack(BuildContext _) => const SingleTrackDemo();
@@ -126,6 +133,8 @@ class HomePage extends StatelessWidget {
   static Widget _buildObserver(BuildContext _) => const ObserverDemo();
   static Widget _buildDebugLogs(BuildContext _) => const DebugLogsDemo();
   static Widget _buildRawMediaKit(BuildContext _) => const RawMediaKitDemo();
+  static Widget _buildResumeFromColdStart(BuildContext _) =>
+      const ResumeFromColdStartDemo();
 
   @override
   Widget build(BuildContext context) {

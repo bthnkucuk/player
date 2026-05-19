@@ -245,4 +245,81 @@ abstract class CorePlayer {
   /// the state doesn't reach ready within the duration. Default: no
   /// timeout.
   Future<void> waitForReady({Duration? timeout});
+
+  /// Captures enough state to restore the player after a cold-launch.
+  ///
+  /// The snapshot envelope:
+  /// ```
+  /// {
+  ///   'schemaVersion': 1,
+  ///   'queue':       <queue.toJson()>,
+  ///   'positionMs':  <player.position.inMilliseconds>,
+  ///   'playing':     <player.isPlaying>,  // captured for diagnostics only
+  /// }
+  /// ```
+  ///
+  /// [restore] always re-materialises the player in a paused state
+  /// regardless of `playing` — auto-resume is a UX call the consumer makes,
+  /// and the field is retained purely so a debugger / logs can answer
+  /// "was the user listening when we snapshotted?".
+  ///
+  /// The default implementation reads [queue], [position], and [isPlaying]
+  /// via the public surface so any [CorePlayer] subclass works out of the
+  /// box. Subclasses with engine-specific scratch can override to capture
+  /// more — but anything captured here must be re-applied in [restore].
+  Map<String, Object?> snapshot() {
+    return <String, Object?>{
+      'schemaVersion': 1,
+      'queue': queue.toJson(),
+      'positionMs': position.inMilliseconds,
+      'playing': isPlaying,
+    };
+  }
+
+  /// Builds a player from a [snapshot] previously produced by [snapshot].
+  ///
+  /// Wires the new player to [audioHandler] (same construction path as
+  /// [CorePlayer.create]) and pre-applies [setQueue] + [seek] before
+  /// returning — but does NOT call [play]. Always paused on return; the
+  /// consumer decides whether to auto-resume.
+  ///
+  /// Throws [SnapshotSchemaMismatchFailure] when the top-level
+  /// `schemaVersion` is unrecognized, and [SnapshotMalformedFailure] when
+  /// required fields (`queue`, `positionMs`) are missing.
+  static Future<CorePlayer> restore(
+    Map<String, Object?> snapshot, {
+    CoreAudioHandler? audioHandler,
+  }) async {
+    final version = snapshot['schemaVersion'];
+    if (version != 1) {
+      throw SnapshotSchemaMismatchFailure(
+        'Unrecognized player snapshot schemaVersion: $version (expected 1)',
+        foundVersion: version is int ? version : null,
+        expectedVersion: 1,
+      );
+    }
+    final rawQueue = snapshot['queue'];
+    if (rawQueue is! Map) {
+      throw const SnapshotMalformedFailure('Player snapshot missing "queue"');
+    }
+    final positionMs = snapshot['positionMs'];
+    if (positionMs is! int) {
+      throw const SnapshotMalformedFailure(
+        'Player snapshot missing "positionMs" int',
+      );
+    }
+    final queue = CorePlayerQueue.fromJson(rawQueue.cast<String, Object?>());
+    final player = CorePlayer.create(audioHandler: audioHandler);
+    // Order matters: setQueue first (opens native handle for the active
+    // source), then seek the playhead. Skip the seek on empty queues —
+    // there's nothing to position. Leave paused; consumer calls play().
+    if (queue.isNotEmpty) {
+      await player.setQueue(queue);
+      final position = Duration(milliseconds: positionMs);
+      if (position > Duration.zero) {
+        await player.seek(position);
+      }
+    }
+    return player;
+  }
 }

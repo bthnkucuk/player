@@ -62,3 +62,22 @@ final class PlayFailure extends CorePlayerFailure {
 final class QueueOutOfBoundsFailure extends CorePlayerFailure {
   const QueueOutOfBoundsFailure(super.message);
 }
+
+/// Thrown by `CorePlayer.restore(...)` (and the queue/source `fromJson`
+/// helpers) when the snapshot's `schemaVersion` is not one this build
+/// understands. Future agents bumping the schema MUST add an explicit
+/// upgrade path or version check before reading the new shape — silently
+/// reusing the old reader would mis-interpret renamed/removed fields.
+final class SnapshotSchemaMismatchFailure extends CorePlayerFailure {
+  const SnapshotSchemaMismatchFailure(super.message, {this.foundVersion, this.expectedVersion});
+  final int? foundVersion;
+  final int? expectedVersion;
+}
+
+/// Thrown by `CorePlayer.restore(...)` when the snapshot is missing a
+/// required field (e.g. `items`, `activeIndex`). The schema check passed,
+/// but the payload itself is malformed — we don't silently default since
+/// that would resurrect a player into a state the user never asked for.
+final class SnapshotMalformedFailure extends CorePlayerFailure {
+  const SnapshotMalformedFailure(super.message);
+}
