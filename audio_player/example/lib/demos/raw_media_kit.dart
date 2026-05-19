@@ -252,193 +252,190 @@ class _RawMediaKitDemoState extends State<RawMediaKitDemo> {
     return Scaffold(
       appBar: AppBar(title: const Text('Raw media_kit (no wrapper)')),
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
+            Text(
+              'Uses media_kit.Player directly — no CorePlayer wrapper. '
+              'Same tuning (cache-on-disk:no, fastseek, etc.) applied.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                FilledButton(onPressed: _load, child: const Text('Load')),
+                FilledButton.tonal(
+                  onPressed: _play,
+                  child: const Text('Play'),
+                ),
+                FilledButton.tonal(
+                  onPressed: _pause,
+                  child: const Text('Pause'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                OutlinedButton(
+                  onPressed: () => _seek(const Duration(minutes: 30)),
+                  child: const Text('Seek 30min'),
+                ),
+                OutlinedButton(
+                  onPressed: () => _seek(const Duration(hours: 1)),
+                  child: const Text('Seek 1h'),
+                ),
+                OutlinedButton(
+                  onPressed: () => _seek(const Duration(minutes: 5)),
+                  child: const Text('Seek 5min'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Byte-percent (SEEK_FACTOR) workaround for the mp3_seek
+            // slow-path bug. Visually distinct from the broken
+            // timestamp-seek row above: bright green FilledButton +
+            // ⚡ prefix + larger padding so users (and Maestro)
+            // can't confuse the two strategies.
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                border: Border.all(
+                  color: Colors.green.shade700,
+                  width: 2,
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Uses media_kit.Player directly — no CorePlayer wrapper. '
-                    'Same tuning (cache-on-disk:no, fastseek, etc.) applied.',
-                    style: theme.textTheme.bodySmall,
+                    '⚡ FAST SEEK (byte-percent workaround)',
+                    style: TextStyle(
+                      color: Colors.green.shade900,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 4,
                     children: [
-                      FilledButton(onPressed: _load, child: const Text('Load')),
-                      FilledButton.tonal(
-                        onPressed: _play,
-                        child: const Text('Play'),
-                      ),
-                      FilledButton.tonal(
-                        onPressed: _pause,
-                        child: const Text('Pause'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      OutlinedButton(
-                        onPressed: () => _seek(const Duration(minutes: 30)),
-                        child: const Text('Seek 30min'),
-                      ),
-                      OutlinedButton(
-                        onPressed: () => _seek(const Duration(hours: 1)),
-                        child: const Text('Seek 1h'),
-                      ),
-                      OutlinedButton(
-                        onPressed: () => _seek(const Duration(minutes: 5)),
-                        child: const Text('Seek 5min'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // Byte-percent (SEEK_FACTOR) workaround for the mp3_seek
-                  // slow-path bug. Visually distinct from the broken
-                  // timestamp-seek row above: bright green FilledButton +
-                  // ⚡ prefix + larger padding so users (and Maestro)
-                  // can't confuse the two strategies.
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      border: Border.all(
-                        color: Colors.green.shade700,
-                        width: 2,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          '⚡ FAST SEEK (byte-percent workaround)',
-                          style: TextStyle(
-                            color: Colors.green.shade900,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.green.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: [
-                            FilledButton(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Colors.green.shade700,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 16,
-                                ),
-                              ),
-                              onPressed: () =>
-                                  _seekByPercent(const Duration(hours: 1)),
-                              child: const Text(
-                                '⚡ Seek 1h FAST',
-                                style: TextStyle(fontSize: 16),
-                              ),
-                            ),
-                            FilledButton(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Colors.green.shade700,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 16,
-                                ),
-                              ),
-                              onPressed: () =>
-                                  _seekByPercent(const Duration(minutes: 30)),
-                              child: const Text(
-                                '⚡ Seek 30min FAST',
-                                style: TextStyle(fontSize: 16),
-                              ),
-                            ),
-                          ],
+                        onPressed: () =>
+                            _seekByPercent(const Duration(hours: 1)),
+                        child: const Text(
+                          '⚡ Seek 1h FAST',
+                          style: TextStyle(fontSize: 16),
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Lifecycle status row — three Semantics nodes Maestro can
-                  // wait on individually. Each renders a tiny chip so the
-                  // values are visible on-screen for human inspection too.
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      Semantics(
-                        identifier: 'tuning_status',
-                        label: _tuningStatus,
-                        child: Chip(label: Text('tune: $_tuningStatus')),
                       ),
-                      Semantics(
-                        identifier: 'load_status',
-                        label: _loadStatus,
-                        child: Chip(label: Text('load: $_loadStatus')),
-                      ),
-                      Semantics(
-                        identifier: 'play_status',
-                        label: _playStatus,
-                        child: Chip(label: Text('play: $_playStatus')),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.green.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                        ),
+                        onPressed: () =>
+                            _seekByPercent(const Duration(minutes: 30)),
+                        child: const Text(
+                          '⚡ Seek 30min FAST',
+                          style: TextStyle(fontSize: 16),
+                        ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 8),
-                  // Maestro reads playback state through this Semantics node
-                  // (id: position_status) — no need to grep accessibility
-                  // text against the formatted "pos: ... buffer: ..." line.
-                  Semantics(
-                    identifier: 'position_status',
-                    label:
-                        'pos=$_position buffer=$_buffer buffering=$_bufferingNow',
-                    child: Text(
-                      'pos: $_position   buffer: $_buffer   buffering: $_bufferingNow',
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  // Dedicated SEEK COMPLETE surface (id: seek_result). Empty
-                  // until the first seek completes; reads "SEEK PENDING …"
-                  // while a seek is in flight, then "SEEK COMPLETE — Xms …"
-                  // when buffering=false fires. Maestro waits on this id
-                  // directly via `extendedWaitUntil: visible: { id: ... }`.
-                  Semantics(
-                    identifier: 'seek_result',
-                    label: _lastSeekResult.isEmpty
-                        ? 'no seek yet'
-                        : _lastSeekResult,
-                    child: Text(
-                      _lastSeekResult.isEmpty
-                          ? '(no seek yet)'
-                          : _lastSeekResult,
-                      style: const TextStyle(
-                        color: Colors.deepPurple,
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 12),
+            // Lifecycle status row — three Semantics nodes Maestro can
+            // wait on individually. Each renders a tiny chip so the
+            // values are visible on-screen for human inspection too.
+            Wrap(
+              spacing: 8,
+              children: [
+                Semantics(
+                  identifier: 'tuning_status',
+                  label: _tuningStatus,
+                  child: Chip(label: Text('tune: $_tuningStatus')),
+                ),
+                Semantics(
+                  identifier: 'load_status',
+                  label: _loadStatus,
+                  child: Chip(label: Text('load: $_loadStatus')),
+                ),
+                Semantics(
+                  identifier: 'play_status',
+                  label: _playStatus,
+                  child: Chip(label: Text('play: $_playStatus')),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Maestro reads playback state through this Semantics node
+            // (id: position_status) — no need to grep accessibility
+            // text against the formatted "pos: ... buffer: ..." line.
+            Semantics(
+              identifier: 'position_status',
+              label:
+                  'pos=$_position buffer=$_buffer buffering=$_bufferingNow',
+              child: Text(
+                'pos: $_position   buffer: $_buffer   buffering: $_bufferingNow',
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            // Dedicated SEEK COMPLETE surface (id: seek_result). Empty
+            // until the first seek completes; reads "SEEK PENDING …"
+            // while a seek is in flight, then "SEEK COMPLETE — Xms …"
+            // when buffering=false fires. Maestro waits on this id
+            // directly via `extendedWaitUntil: visible: { id: ... }`.
+            Semantics(
+              identifier: 'seek_result',
+              label: _lastSeekResult.isEmpty
+                  ? 'no seek yet'
+                  : _lastSeekResult,
+              child: Text(
+                _lastSeekResult.isEmpty
+                    ? '(no seek yet)'
+                    : _lastSeekResult,
+                style: const TextStyle(
+                  color: Colors.deepPurple,
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             const Divider(height: 1),
-            Expanded(
-              // id: log_panel — Maestro can scroll/inspect this node by id
-              // if the raw event stream is needed for deeper diagnosis.
+            const SizedBox(height: 8),
+            // Bounded log surface (260px) with its own ListView so the log
+            // scrolls independently within the outer scrollable body.
+            // id: log_panel — Maestro can scroll/inspect this node by id
+            // if the raw event stream is needed for deeper diagnosis.
+            SizedBox(
+              height: 260,
               child: Semantics(
                 identifier: 'log_panel',
                 container: true,
