@@ -34,6 +34,7 @@ class CorePlayerConfiguration {
     this.internalPositionThrottle = const Duration(milliseconds: 200),
     this.libmpvOptions,
     this.onQueueExhausted,
+    this.heartbeatInterval,
   });
 
   /// Native player buffer size in bytes. Larger = smoother streaming over
@@ -132,6 +133,14 @@ class CorePlayerConfiguration {
   /// Wrapper is intentionally opinion-free: the app's recommendation
   /// engine decides what plays next.
   final CorePlayerOnQueueExhausted? onQueueExhausted;
+
+  /// Heartbeat interval for [PlaybackHeartbeatEvent] emission. Null
+  /// disables heartbeats (default). Typical analytics value: 30 seconds.
+  ///
+  /// Opt-in to avoid analytics-pipeline cost for apps that don't need
+  /// royalty heartbeats; royalty / "minutes listened" pipelines wire this
+  /// to a non-null value and consume the resulting periodic event.
+  final Duration? heartbeatInterval;
 }
 
 /// Retry policy for `CorePlayer.load()`. When [maxAttempts] is 1 the wrapper

@@ -6,6 +6,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:player_core/src/failures/core_player_failure.dart';
 import 'package:player_core/src/observer/core_player_observer.dart';
 import 'package:player_core/src/player/core_audio_handler.dart';
+import 'package:player_core/src/player/core_playback_event.dart';
 import 'package:player_core/src/player/core_player_capabilities.dart';
 import 'package:player_core/src/queue/core_player_queue.dart';
 
@@ -298,6 +299,10 @@ abstract class CorePlayer {
   /// Also fires on async errors surfaced via `player.stream.error`
   /// (e.g. mid-stream network drops) as synthetic [LoadFailure]s.
   Stream<CorePlayerFailure> get errorStream;
+
+  /// Typed playback events for analytics. Cold (broadcast); subscribers
+  /// receive all events emitted after subscription. Multi-subscriber safe.
+  Stream<CorePlaybackEvent> get playbackEventStream;
 
   Future<void> stop({bool fromDispose = false});
 
