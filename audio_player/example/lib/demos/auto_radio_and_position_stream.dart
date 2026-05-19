@@ -50,7 +50,7 @@ class _AutoRadioAndPositionStreamDemoState
 
   /// Pool the auto-radio callback returns from. Different tracks than the
   /// seed queue so the user can hear the transition.
-  late final List<CorePlayerAudioSource> _autoRadioPool = <CorePlayerAudioSource>[
+  late final List<CoreAudioSource> _autoRadioPool = <CoreAudioSource>[
     SampleTracks.soundHelix2,
     SampleTracks.soundHelix3,
     SampleTracks.scienceFridaySegment,
@@ -103,7 +103,7 @@ class _AutoRadioAndPositionStreamDemoState
 
   /// onQueueExhausted body. Returning null/empty stops naturally;
   /// returning a non-empty list lets the wrapper append and continue.
-  Future<List<CorePlayerAudioSource>>? _onQueueExhausted() {
+  Future<List<CoreAudioSource>>? _onQueueExhausted() {
     // Bump synchronously so the UI counter reflects the firing event
     // even before the (async) recommendation resolves.
     if (mounted) {
@@ -120,7 +120,7 @@ class _AutoRadioAndPositionStreamDemoState
 
     final next = _autoRadioPool[_autoRadioCursor % _autoRadioPool.length];
     _autoRadioCursor++;
-    return Future<List<CorePlayerAudioSource>>.value(<CorePlayerAudioSource>[next]);
+    return Future<List<CoreAudioSource>>.value(<CoreAudioSource>[next]);
   }
 
   @override

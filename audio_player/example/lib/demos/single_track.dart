@@ -191,36 +191,32 @@ class _SingleTrackDemoState extends State<SingleTrackDemo> {
             StreamBuilder<Duration>(
               stream: _player.positionStream,
               initialData: _player.position,
-              builder:
-                  (BuildContext context, AsyncSnapshot<Duration> posSnap) {
-                    return StreamBuilder<Duration>(
-                      stream: _player.durationStream,
-                      initialData: _player.duration,
-                      builder:
-                          (
-                            BuildContext context,
-                            AsyncSnapshot<Duration> durSnap,
-                          ) {
-                            return StreamBuilder<Duration>(
-                              stream: _player.bufferStream,
-                              initialData: _player.buffer,
-                              builder:
-                                  (
-                                    BuildContext context,
-                                    AsyncSnapshot<Duration> bufSnap,
-                                  ) {
-                                    return SeekBar(
-                                      duration: durSnap.data ?? Duration.zero,
-                                      position: posSnap.data ?? Duration.zero,
-                                      bufferedPosition:
-                                          bufSnap.data ?? Duration.zero,
-                                      onSeek: _seekTo,
-                                    );
-                                  },
-                            );
-                          },
-                    );
-                  },
+              builder: (BuildContext context, AsyncSnapshot<Duration> posSnap) {
+                return StreamBuilder<Duration>(
+                  stream: _player.durationStream,
+                  initialData: _player.duration,
+                  builder:
+                      (BuildContext context, AsyncSnapshot<Duration> durSnap) {
+                        return StreamBuilder<Duration>(
+                          stream: _player.bufferStream,
+                          initialData: _player.buffer,
+                          builder:
+                              (
+                                BuildContext context,
+                                AsyncSnapshot<Duration> bufSnap,
+                              ) {
+                                return SeekBar(
+                                  duration: durSnap.data ?? Duration.zero,
+                                  position: posSnap.data ?? Duration.zero,
+                                  bufferedPosition:
+                                      bufSnap.data ?? Duration.zero,
+                                  onSeek: _seekTo,
+                                );
+                              },
+                        );
+                      },
+                );
+              },
             ),
             const SizedBox(height: 12),
             // Instrumentation: hardcoded seek buttons for deterministic repro.
@@ -350,7 +346,7 @@ class _SingleTrackDemoState extends State<SingleTrackDemo> {
 class _TrackHeader extends StatelessWidget {
   const _TrackHeader({required this.source});
 
-  final CorePlayerAudioSource source;
+  final CoreAudioSource source;
 
   @override
   Widget build(BuildContext context) {
@@ -372,7 +368,10 @@ class _TrackHeader extends StatelessWidget {
           ),
         const SizedBox(height: 4),
         Text(
-          source.url ?? source.filePath ?? '',
+          switch (source) {
+            HttpAudioSource(:final url) => url.toString(),
+            FileAudioSource(:final path) => path,
+          },
           style: Theme.of(
             context,
           ).textTheme.bodySmall?.copyWith(color: Colors.grey),

@@ -12,51 +12,56 @@ class SampleTracks {
   const SampleTracks._();
 
   /// Science Friday — single-track demo source.
-  static final CorePlayerAudioSource scienceFridayEpisode = CorePlayerAudioSource(
+  static final CoreAudioSource scienceFridayEpisode = HttpAudioSource(
     title: 'Science Friday — Episode',
     artist: 'Science Friday and WNYC Studios',
-    album: 'Podcast',
-    url: 'https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3',
+    url: Uri.parse(
+      'https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3',
+    ),
     artUri: Uri.parse('https://picsum.photos/seed/scifri-episode/600/600'),
   );
 
   /// Science Friday — second podcast segment, used in the playlist demo.
-  static final CorePlayerAudioSource scienceFridaySegment = CorePlayerAudioSource(
+  static final CoreAudioSource scienceFridaySegment = HttpAudioSource(
     title: 'Science Friday — Segment',
     artist: 'Science Friday and WNYC Studios',
-    album: 'Podcast',
-    url: 'https://s3.amazonaws.com/scifri-segments/scifri201711241.mp3',
+    url: Uri.parse(
+      'https://s3.amazonaws.com/scifri-segments/scifri201711241.mp3',
+    ),
     artUri: Uri.parse('https://picsum.photos/seed/scifri-segment/600/600'),
   );
 
   /// SoundHelix royalty-free tracks — used in the playlist demo so we have at
   /// least three sources to demonstrate skipToNext / skipToPrevious wrap-around.
-  static final CorePlayerAudioSource soundHelix1 = CorePlayerAudioSource(
+  static final CoreAudioSource soundHelix1 = HttpAudioSource(
     title: 'SoundHelix Song 1',
     artist: 'SoundHelix',
-    album: 'Royalty-Free Demo',
-    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    url: Uri.parse(
+      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    ),
     artUri: Uri.parse('https://picsum.photos/seed/soundhelix-1/600/600'),
   );
 
-  static final CorePlayerAudioSource soundHelix2 = CorePlayerAudioSource(
+  static final CoreAudioSource soundHelix2 = HttpAudioSource(
     title: 'SoundHelix Song 2',
     artist: 'SoundHelix',
-    album: 'Royalty-Free Demo',
-    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    url: Uri.parse(
+      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    ),
     artUri: Uri.parse('https://picsum.photos/seed/soundhelix-2/600/600'),
   );
 
-  static final CorePlayerAudioSource soundHelix3 = CorePlayerAudioSource(
+  static final CoreAudioSource soundHelix3 = HttpAudioSource(
     title: 'SoundHelix Song 3',
     artist: 'SoundHelix',
-    album: 'Royalty-Free Demo',
-    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+    url: Uri.parse(
+      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+    ),
     artUri: Uri.parse('https://picsum.photos/seed/soundhelix-3/600/600'),
   );
 
   /// Default queue for the playlist demo.
-  static final List<CorePlayerAudioSource> playlist = <CorePlayerAudioSource>[
+  static final List<CoreAudioSource> playlist = <CoreAudioSource>[
     scienceFridayEpisode,
     scienceFridaySegment,
     soundHelix1,

@@ -65,9 +65,9 @@ class _ObserverDemoState extends State<ObserverDemo> {
     // wrapper's _throwAndEmit helper.
     try {
       await _player.loadAndPlay(
-        const CorePlayerAudioSource(
+        HttpAudioSource(
           title: 'Bogus track',
-          url: 'https://invalid.example.invalid/missing.mp3',
+          url: Uri.parse('https://invalid.example.invalid/missing.mp3'),
         ),
       );
     } on CorePlayerFailure {
@@ -107,9 +107,8 @@ class _ObserverDemoState extends State<ObserverDemo> {
               runSpacing: 8,
               children: <Widget>[
                 FilledButton(
-                  onPressed: () => _player.loadAndPlay(
-                    SampleTracks.scienceFridayEpisode,
-                  ),
+                  onPressed: () =>
+                      _player.loadAndPlay(SampleTracks.scienceFridayEpisode),
                   child: const Text('loadAndPlay → onLoad + onPlay'),
                 ),
                 FilledButton.tonal(
@@ -123,42 +122,33 @@ class _ObserverDemoState extends State<ObserverDemo> {
             StreamBuilder<Duration>(
               stream: _player.positionStream,
               initialData: _player.position,
-              builder:
-                  (
-                    BuildContext context,
-                    AsyncSnapshot<Duration> posSnap,
-                  ) {
-                    return StreamBuilder<Duration>(
-                      stream: _player.durationStream,
-                      initialData: _player.duration,
-                      builder:
-                          (
-                            BuildContext context,
-                            AsyncSnapshot<Duration> durSnap,
-                          ) {
-                            return StreamBuilder<Duration>(
-                              stream: _player.bufferStream,
-                              initialData: _player.buffer,
-                              builder:
-                                  (
-                                    BuildContext context,
-                                    AsyncSnapshot<Duration> bufSnap,
-                                  ) {
-                                    return SeekBar(
-                                      position:
-                                          posSnap.data ?? Duration.zero,
-                                      duration:
-                                          durSnap.data ?? Duration.zero,
-                                      bufferedPosition:
-                                          bufSnap.data ?? Duration.zero,
-                                      onSeek: (Duration target) =>
-                                          _player.seek(target),
-                                    );
-                                  },
-                            );
-                          },
-                    );
-                  },
+              builder: (BuildContext context, AsyncSnapshot<Duration> posSnap) {
+                return StreamBuilder<Duration>(
+                  stream: _player.durationStream,
+                  initialData: _player.duration,
+                  builder:
+                      (BuildContext context, AsyncSnapshot<Duration> durSnap) {
+                        return StreamBuilder<Duration>(
+                          stream: _player.bufferStream,
+                          initialData: _player.buffer,
+                          builder:
+                              (
+                                BuildContext context,
+                                AsyncSnapshot<Duration> bufSnap,
+                              ) {
+                                return SeekBar(
+                                  position: posSnap.data ?? Duration.zero,
+                                  duration: durSnap.data ?? Duration.zero,
+                                  bufferedPosition:
+                                      bufSnap.data ?? Duration.zero,
+                                  onSeek: (Duration target) =>
+                                      _player.seek(target),
+                                );
+                              },
+                        );
+                      },
+                );
+              },
             ),
             const SizedBox(height: 4),
             Text(
@@ -242,7 +232,7 @@ class _UiObserver extends CorePlayerObserver {
   void onCreate(CorePlayer player) => _sink('onCreate');
 
   @override
-  void onLoad(CorePlayer player, CorePlayerAudioSource source) =>
+  void onLoad(CorePlayer player, CoreAudioSource source) =>
       _sink('onLoad: ${source.title}');
 
   @override
@@ -259,7 +249,11 @@ class _UiObserver extends CorePlayerObserver {
       _sink('onSeek: ${position.inSeconds}s');
 
   @override
-  void onStateChange(CorePlayer player, CorePlayerState from, CorePlayerState to) {
+  void onStateChange(
+    CorePlayer player,
+    CorePlayerState from,
+    CorePlayerState to,
+  ) {
     _sink('onStateChange: ${from.name} → ${to.name}');
   }
 

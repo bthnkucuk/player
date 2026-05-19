@@ -7,7 +7,7 @@ Production-grade audio playback for Flutter — a thin, testable wrapper over [m
 
 Two packages, split so app code only depends on the abstraction:
 
-- **[`player_core`](player_core/)** — backend-agnostic API (`CorePlayer`, `CoreAudioHandler`, `CorePlayerAudioSource`, typed failures, the `CoreAudioServiceBridge` SPI). No `audio_service` leak; imports only `equatable`, `flutter`, `meta`, `rxdart`.
+- **[`player_core`](player_core/)** — backend-agnostic API (`CorePlayer`, `CoreAudioHandler`, the sealed `CoreAudioSource` hierarchy with `HttpAudioSource` / `FileAudioSource`, typed failures, the `CoreAudioServiceBridge` SPI). No `audio_service` leak; imports only `equatable`, `flutter`, `meta`, `rxdart`.
 - **[`audio_player`](audio_player/)** — the `media_kit`-based implementation. Wires `media_kit`'s `Player` to `audio_service` (lock-screen / notification) and `audio_session` (interruption handling, audio focus).
 
 ## Install

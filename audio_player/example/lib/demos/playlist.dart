@@ -189,7 +189,7 @@ class _PlaylistDemoState extends State<PlaylistDemo> {
                       _safe(() => _player.moveItem(oldIndex, adjusted));
                     },
                     itemBuilder: (BuildContext context, int index) {
-                      final CorePlayerAudioSource source = queue[index];
+                      final CoreAudioSource source = queue[index];
                       final bool isCurrent = index == queue.currentIndex;
                       return ListTile(
                         // See queue_mutation.dart for the rationale: url-only

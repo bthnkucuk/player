@@ -1,7 +1,8 @@
 #player
 
 Backend-agnostic Flutter audio player wrapper. Defines a small abstract
-surface (`CorePlayer`, `CoreAudioHandler`, `CorePlayerAudioSource`, the failure
+surface (`CorePlayer`, `CoreAudioHandler`, the sealed `CoreAudioSource`
+hierarchy with `HttpAudioSource` / `FileAudioSource`, the failure
 sealed hierarchy, and the `CoreAudioServiceBridge` SPI) so apps depend on
 this package and pick an impl at bootstrap.
 
@@ -91,18 +92,18 @@ await CoreAudioHandler.initialize();        // wires audio_service
 
 final player = CorePlayer.create(audioHandler: CoreAudioHandler.instance);
 
-const source = CorePlayerAudioSource(
+final source = HttpAudioSource(
   title: 'Track',
   artist: 'Artist',
-  url: 'https://example.com/audio.mp3',
+  url: Uri.parse('https://example.com/audio.mp3'),
 );
 
 await player.loadAndPlay(source);
 
 // 3. Queue-based playback (Phase 10):
 final queue = CorePlayerQueue([
-  CorePlayerAudioSource(title: 'Track 1', url: 'https://example.com/1.mp3'),
-  CorePlayerAudioSource(title: 'Track 2', url: 'https://example.com/2.mp3'),
+  HttpAudioSource(title: 'Track 1', url: Uri.parse('https://example.com/1.mp3')),
+  HttpAudioSource(title: 'Track 2', url: Uri.parse('https://example.com/2.mp3')),
 ]);
 
 await player.setQueue(queue);

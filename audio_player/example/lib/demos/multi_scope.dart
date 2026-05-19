@@ -108,7 +108,7 @@ class _ScopePane extends StatelessWidget {
   const _ScopePane({required this.title, required this.source, required this.player, required this.scope});
 
   final String title;
-  final CorePlayerAudioSource source;
+  final CoreAudioSource source;
   final CorePlayer player;
   final CoreAudioHandler scope;
 

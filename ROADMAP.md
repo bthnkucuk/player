@@ -32,7 +32,7 @@ Production-grade audio wrapper plan for `player_core` + `audio_player`.
 - [ ] **Hide `CorePlayerMediaKit.player`** at `audio_player/lib/src/player/core_player_media_kit.dart:124`. Mark `@internal` or make private — leaks `media_kit.Player` and breaks backend-agnostic claim.
 - [ ] **Remove `alchemist`** dev dep + `flutter_test_config.dart` `ciGoldensConfig` wrappers (covered in Phase 0).
 - [ ] **`seek` snap thresholds** at `core_player_media_kit.dart:744-746`: either make `seekStartThreshold` / `seekEndThreshold` consumer-configurable via `CorePlayerConfiguration`, or remove the silent no-op (current behavior is a footgun).
-- [ ] **`CorePlayerAudioSource` validation** in constructor: require exactly one of `url` / `filePath` at construction, not deferred-throw in `_toMedia`.
+- [x] **`CorePlayerAudioSource` validation** in constructor: ~~require exactly one of `url` / `filePath` at construction, not deferred-throw in `_toMedia`.~~ Resolved in Faz S1: `CorePlayerAudioSource` was replaced with a sealed `CoreAudioSource` hierarchy (`HttpAudioSource` carries `Uri url`, `FileAudioSource` carries `String path`) — the type system now forbids the "neither" state.
 
 ### Test seam (testability blockers)
 - [ ] **Extract `MediaKitPlayerLike` interface** covering the subset of `media_kit.Player` the wrapper uses (`stream.position`, `stream.playlist`, `stream.playing`, `stream.completed`, `stream.volume`, `stream.rate`, `stream.buffer`, `open`, `play`, `pause`, `seek`, `next`, `previous`, `jump`, `dispose`, etc.). Unlocks state-machine + queue tests without libmpv. Highest single-change leverage.

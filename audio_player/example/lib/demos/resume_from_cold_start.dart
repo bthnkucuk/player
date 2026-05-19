@@ -31,7 +31,7 @@ class _ResumeFromColdStartDemoState extends State<ResumeFromColdStartDemo> {
 
   // Queue used for the demo — small subset of [SampleTracks] so the user can
   // exercise skip + restore on a manageable queue.
-  static final List<CorePlayerAudioSource> _demoQueue = <CorePlayerAudioSource>[
+  static final List<CoreAudioSource> _demoQueue = <CoreAudioSource>[
     SampleTracks.soundHelix1,
     SampleTracks.soundHelix2,
     SampleTracks.soundHelix3,
@@ -177,7 +177,7 @@ class _ResumeFromColdStartDemoState extends State<ResumeFromColdStartDemo> {
             ),
             const SizedBox(height: 8),
             if (player != null) ...<Widget>[
-              StreamBuilder<CorePlayerAudioSource?>(
+              StreamBuilder<CoreAudioSource?>(
                 stream: player.audioSourceStream,
                 initialData: player.audioSource,
                 builder: (context, snap) {

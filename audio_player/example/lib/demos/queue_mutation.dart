@@ -28,7 +28,7 @@ class _QueueMutationDemoState extends State<QueueMutationDemo> {
 
   // Reserved as the bench source for insertNext / replaceAt — kept distinct
   // from the initial queue so the new item is visually identifiable.
-  static final CorePlayerAudioSource _benchTrack = SampleTracks.soundHelix3;
+  static final CoreAudioSource _benchTrack = SampleTracks.soundHelix3;
 
   @override
   void initState() {
@@ -51,7 +51,7 @@ class _QueueMutationDemoState extends State<QueueMutationDemo> {
     setState(() => _lastError = null);
     try {
       await _player.setQueue(
-        CorePlayerQueue(<CorePlayerAudioSource>[
+        CorePlayerQueue(<CoreAudioSource>[
           SampleTracks.scienceFridayEpisode,
           SampleTracks.scienceFridaySegment,
           SampleTracks.soundHelix1,
@@ -226,7 +226,7 @@ class _NowPlaying extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: <Widget>[
-        StreamBuilder<CorePlayerAudioSource?>(
+        StreamBuilder<CoreAudioSource?>(
           stream: player.audioSourceStream,
           initialData: player.audioSource,
           builder: (context, snap) {
@@ -320,7 +320,7 @@ class _MutationControls extends StatelessWidget {
 
   final bool enabled;
   final CorePlayerQueue queue;
-  final CorePlayerAudioSource benchTrack;
+  final CoreAudioSource benchTrack;
   final VoidCallback onInsertNext;
   final VoidCallback onAppend;
   final VoidCallback onRemoveCurrent;
@@ -418,7 +418,7 @@ class _QueueView extends StatelessWidget {
           // Keys must be unique even when the queue contains
           // duplicate sources (e.g. after `insertNext(X)` followed
           // by `replaceAt(0, X)` — two slots reference the same
-          // CorePlayerAudioSource instance, identical URLs). The
+          // CoreAudioSource instance, identical URLs). The
           // index is the disambiguator; `identityHashCode` lets
           // the framework distinguish a "replace" (new instance)
           // from a "reorder" (same instance moved) at the same
@@ -433,7 +433,13 @@ class _QueueView extends StatelessWidget {
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
             ),
           ),
-          subtitle: Text(source.artist ?? source.url ?? ''),
+          subtitle: Text(
+            source.artist ??
+                switch (source) {
+                  HttpAudioSource(:final url) => url.toString(),
+                  FileAudioSource(:final path) => path,
+                },
+          ),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
