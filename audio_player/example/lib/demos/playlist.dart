@@ -195,8 +195,9 @@ class _PlaylistDemoState extends State<PlaylistDemo> {
                     itemCount: queue.length,
                     onReorder: (int oldIndex, int newIndex) {
                       // Flutter passes a newIndex computed against the
-                      // pre-removal list when dragging DOWN, so decrement by
-                      // 1 before forwarding to CorePlayer.moveItem.
+                      // pre-removal list when dragging DOWN; strip the
+                      // overshoot so the value matches CorePlayer.moveItem's
+                      // "destination slot in the final list" contract.
                       final int adjusted = newIndex > oldIndex ? newIndex - 1 : newIndex;
                       if (adjusted == oldIndex) return;
                       _safe(() => _player.moveItem(oldIndex, adjusted));

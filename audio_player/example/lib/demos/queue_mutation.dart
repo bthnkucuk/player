@@ -374,10 +374,11 @@ class _QueueView extends StatelessWidget {
   final CorePlayerQueue queue;
   final CorePlayer player;
 
-  /// Caller-supplied reorder handler. Receives `(from, to)` already adjusted
-  /// for Flutter's `ReorderableListView.onReorder` quirk (see below): when a
-  /// row is dragged DOWN, Flutter passes `newIndex` computed against the
-  /// list BEFORE removal, so it is one larger than the final landing slot.
+  /// Caller-supplied reorder handler. Receives `(from, to)` where [to] is
+  /// the destination slot in the FINAL list — matches
+  /// [CorePlayer.moveItem]'s contract. The Flutter
+  /// `ReorderableListView.onReorder` quirk (see below) is absorbed at the
+  /// call site before invoking this callback.
   final Future<void> Function(int from, int to) onReorder;
 
   @override
@@ -398,10 +399,12 @@ class _QueueView extends StatelessWidget {
       buildDefaultDragHandles: false,
       itemCount: queue.length,
       onReorder: (int oldIndex, int newIndex) {
-        // Flutter's quirk: when dragging DOWN, `newIndex` is one
-        // larger than the destination slot because it is computed
-        // against the pre-removal list. Adjust before delegating
-        // to `CorePlayer.moveItem`.
+        // `ReorderableListView` quirk: when dragging DOWN, Flutter
+        // passes `newIndex` computed against the pre-removal list,
+        // so it is one larger than the final destination slot.
+        // `CorePlayer.moveItem` expects `to` to be the destination
+        // index in the FINAL list, so we strip Flutter's overshoot
+        // before delegating.
         final int adjusted = newIndex > oldIndex ? newIndex - 1 : newIndex;
         if (adjusted == oldIndex) return;
         // Fire-and-forget: the queueStream rebuild will reflect
