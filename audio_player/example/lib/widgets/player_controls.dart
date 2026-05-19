@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:player_core/player_core.dart';
+// rxdart reaches us transitively through player_core (which exposes
+// ValueStream and uses Rx.* internally). The example pubspec intentionally
+// does NOT list it as a direct dep — keep this import suppressed.
+// ignore: depend_on_referenced_packages
+import 'package:rxdart/rxdart.dart';
 
 /// Transport row: replay 10s, skip prev, play/pause/stop, skip next, forward 10s.
 ///
@@ -94,6 +99,12 @@ class PlayPauseStopButtons extends StatelessWidget {
   }
 }
 
+/// Snapshot carrying the two queue facts the skip buttons depend on:
+/// the queue itself (for length + currentIndex) and the loop mode (because
+/// wrap-around in loop-all mode legalises boundary skips that would
+/// otherwise throw `QueueOutOfBoundsFailure`).
+typedef _SkipState = ({CorePlayerQueue queue, CorePlayerLoopMode loop});
+
 class _SkipButton extends StatelessWidget {
   const _SkipButton({required this.player, required this.isNext});
 
@@ -102,17 +113,42 @@ class _SkipButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<CorePlayerQueue>(
-      stream: player.queueStream,
-      initialData: player.queue,
-      builder: (BuildContext context, AsyncSnapshot<CorePlayerQueue> snap) {
-        final bool enabled = (snap.data?.length ?? 0) > 1;
-        // Tooltip explains the disabled state; without it the greyed icon is
-        // ambiguous (could read as a transient buffering state).
+    // Two-stream wiring: the disable predicate must consult both the queue
+    // (length/currentIndex) and loopMode. Without loopMode the button would
+    // either over-disable in loop-all (where wrap is legal) or, as before,
+    // under-disable at the boundaries and let the user call skipToNext()
+    // past the end — which throws QueueOutOfBoundsFailure.
+    return StreamBuilder<_SkipState>(
+      stream: Rx.combineLatest2<CorePlayerQueue, CorePlayerLoopMode, _SkipState>(
+        player.queueStream,
+        player.loopModeStream,
+        (CorePlayerQueue q, CorePlayerLoopMode loop) =>
+            (queue: q, loop: loop),
+      ),
+      initialData: (queue: player.queue, loop: player.loopMode),
+      builder: (BuildContext context, AsyncSnapshot<_SkipState> snap) {
+        final CorePlayerQueue q = snap.data!.queue;
+        final CorePlayerLoopMode loop = snap.data!.loop;
+        final bool wraps = loop == CorePlayerLoopMode.all;
+        final bool hasMultiple = q.length > 1;
+        final bool atEnd = q.currentIndex >= q.length - 1;
+        final bool atStart = q.currentIndex <= 0;
+        final bool enabled = hasMultiple &&
+            (isNext ? (!atEnd || wraps) : (!atStart || wraps));
+
+        final String tooltip;
+        if (!hasMultiple) {
+          tooltip = 'Queue has a single track';
+        } else if (!enabled && isNext) {
+          tooltip = 'Already at last track (loop is off)';
+        } else if (!enabled && !isNext) {
+          tooltip = 'Already at first track (loop is off)';
+        } else {
+          tooltip = isNext ? 'Skip next' : 'Skip previous';
+        }
+
         return Tooltip(
-          message: enabled
-              ? (isNext ? 'Skip next' : 'Skip previous')
-              : 'Queue has a single track',
+          message: tooltip,
           child: IconButton(
             iconSize: 36,
             icon: Icon(isNext ? Icons.skip_next : Icons.skip_previous),
