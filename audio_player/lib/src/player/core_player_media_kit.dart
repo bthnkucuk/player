@@ -919,15 +919,6 @@ class CorePlayerMediaKit extends CorePlayer
   @override
   late final ValueStream<bool> shuffleStream = _shuffleSubject.stream;
 
-  @override
-  Future<void> setShuffle(bool enabled) async {
-    if (_disposed) {
-      _throwAndEmit(const PlayerDisposedFailure());
-    }
-    await runOnNative(() => player.setShuffle(enabled));
-    _shuffleSubject.add(enabled);
-  }
-
   /// Open [playable] (a [Media] or [Playlist]) with the retry policy
   /// configured via [CorePlayerConfiguration]. Network/native-open failures
   /// are retried per [LoadRetryConfig]; the final failure surfaces as a

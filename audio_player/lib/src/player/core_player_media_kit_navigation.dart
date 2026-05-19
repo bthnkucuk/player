@@ -111,4 +111,13 @@ mixin CorePlayerMediaKitNavigation on CorePlayer
       await audioHandler?.requestActiveSession();
     }
   }
+
+  @override
+  Future<void> setShuffle(bool enabled) async {
+    if (_disposed) {
+      _throwAndEmit(const PlayerDisposedFailure());
+    }
+    await runOnNative(() => player.setShuffle(enabled));
+    _shuffleSubject.add(enabled);
+  }
 }
