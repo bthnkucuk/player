@@ -26,3 +26,7 @@ coverage/
 
 # FVM Version Cache
 .fvm/
+
+# Claude Code agent worktrees (per-agent isolated copies of the repo).
+# These are local, transient working directories — never commit them.
+.claude/worktrees/

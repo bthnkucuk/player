@@ -26,6 +26,14 @@ typedef CorePlayerFactory =
 
 enum CorePlayerState { error, loading, ready, idle, completed }
 
+/// Combined position + duration snapshot for scrubber-style UIs.
+///
+/// Returned by [CorePlayer.positionDataStream] so consumers don't have to
+/// hand-roll a `Rx.combineLatest2(positionStream, durationStream)` per
+/// widget. Record fields use named accessors (`pos.position`,
+/// `pos.duration`) for readability at call sites.
+typedef CorePlayerPositionData = ({Duration position, Duration duration});
+
 /// Loop mode for [CorePlayer].
 enum CorePlayerLoopMode {
   /// No loop. When the queue ends, playback stops.
@@ -110,6 +118,19 @@ abstract class CorePlayer {
   ValueStream<Duration> get durationStream;
   ValueStream<Duration> get bufferStream;
   ValueStream<bool> get playingStream;
+
+  /// Combined `(position, duration)` snapshot stream. Seeded with the
+  /// current values so new subscribers (e.g. a freshly mounted scrubber
+  /// widget) receive an immediate snapshot rather than having to wait for
+  /// the next position tick to render.
+  ///
+  /// Emits only when either field changes — back-to-back identical
+  /// `(position, duration)` records are deduplicated so scrubber rebuilds
+  /// are not spammed.
+  ///
+  /// Prefer this over manually combining [positionStream] and
+  /// [durationStream] in app code.
+  ValueStream<CorePlayerPositionData> get positionDataStream;
 
   CorePlayerState get playerState;
   Duration get position;

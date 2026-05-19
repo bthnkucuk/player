@@ -1,9 +1,19 @@
+import 'package:player_core/src/player/core_audio_source.dart';
+
 /// Signature for the logger callback wired through
 /// [CorePlayerConfiguration.logCallback]. Pass an adapter that forwards into
 /// talker / logging / your own observer so the wrapper doesn't bind consumers
 /// to a specific logging library.
 typedef CorePlayerLogCallback =
     void Function(String message, {Object? error, StackTrace? stackTrace});
+
+/// Signature for the queue-exhaustion callback wired through
+/// [CorePlayerConfiguration.onQueueExhausted]. Returning a non-null,
+/// non-empty list appends the sources to the active queue and continues
+/// playback; returning null or an empty list lets the player stop
+/// naturally.
+typedef CorePlayerOnQueueExhausted =
+    Future<List<CorePlayerAudioSource>>? Function();
 
 /// Wrapper-level configuration for [CorePlayer] implementations. Pass to the
 /// impl's `ensureInitialized()` to override defaults.
@@ -23,6 +33,7 @@ class CorePlayerConfiguration {
     this.logCallback,
     this.internalPositionThrottle = const Duration(milliseconds: 200),
     this.libmpvOptions,
+    this.onQueueExhausted,
   });
 
   /// Native player buffer size in bytes. Larger = smoother streaming over
@@ -111,6 +122,16 @@ class CorePlayerConfiguration {
   ///
   /// Only honored by the media_kit-based backend; ignored elsewhere.
   final Map<String, String>? libmpvOptions;
+
+  /// Called when the player exhausts the active queue (last item finishes
+  /// naturally — NOT when the user pauses/stops). The future's resolved
+  /// value, if non-null and non-empty, is appended to the queue and
+  /// playback continues; otherwise the player remains in the completed
+  /// state.
+  ///
+  /// Wrapper is intentionally opinion-free: the app's recommendation
+  /// engine decides what plays next.
+  final CorePlayerOnQueueExhausted? onQueueExhausted;
 }
 
 /// Retry policy for `CorePlayer.load()`. When [maxAttempts] is 1 the wrapper

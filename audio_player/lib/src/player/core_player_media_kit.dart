@@ -14,6 +14,7 @@ import 'package:audio_player/src/player/core_player_media_kit_concurrency.dart';
 
 part 'core_player_media_kit_libmpv.dart';
 part 'core_player_media_kit_queue.dart';
+part 'core_player_media_kit_auto_radio.dart';
 
 /// Position-restoration SLA for [CorePlayerMediaKit.replaceAt] when
 /// `preservePosition: true` is requested for the active index. Buffer-aware
@@ -223,6 +224,30 @@ class CorePlayerMediaKit extends CorePlayer with CorePlayerMediaKitConcurrency {
     // [shuffle] / [shuffleStream] stay in sync with the native state.
     _shuffleSubscription = player.stream.shuffle.listen(_shuffleSubject.add);
 
+    // Combine position + duration into a single seeded record so scrubber
+    // UIs can subscribe to one stream. `distinct` collapses back-to-back
+    // identical records (mostly when only the buffer changes upstream and
+    // both inputs re-emit unchanged values).
+    _positionDataSubscription = Rx.combineLatest2<Duration, Duration, CorePlayerPositionData>(
+      _positionSubject.stream,
+      _durationSubject.stream,
+      (p, d) => (position: p, duration: d),
+    ).distinct().listen((data) {
+      if (_disposed) return;
+      if (!_positionDataSubject.isClosed) {
+        _positionDataSubject.add(data);
+      }
+    });
+
+    // Queue-exhaustion detector: media_kit's `completed` fires on every
+    // track end. We only invoke the configured callback when the last
+    // playlist index just finished — see [_onQueueExhausted].
+    _queueExhaustedSubscription = player.stream.completed.listen((completed) {
+      if (!completed) return;
+      if (_disposed) return;
+      _maybeFireQueueExhausted();
+    });
+
     // INTERNAL position input is throttled (default 200ms, trailing) so the
     // playerState combineLatest5 doesn't churn at native rate (~30 Hz). The
     // public [positionStream] remains at native rate for UI scrubbers — only
@@ -431,6 +456,8 @@ class CorePlayerMediaKit extends CorePlayer with CorePlayerMediaKitConcurrency {
   StreamSubscription<double>? _volumeSubscription;
   StreamSubscription<Playlist>? _playlistSubscription;
   StreamSubscription<bool>? _shuffleSubscription;
+  StreamSubscription<CorePlayerPositionData>? _positionDataSubscription;
+  StreamSubscription<bool>? _queueExhaustedSubscription;
 
   final BehaviorSubject<String?> _playerErrorSubject = BehaviorSubject<String?>.seeded(null);
   final BehaviorSubject<CorePlayerState> _playerStateSubject = BehaviorSubject<CorePlayerState>.seeded(CorePlayerState.idle);
@@ -462,6 +489,22 @@ class CorePlayerMediaKit extends CorePlayer with CorePlayerMediaKitConcurrency {
   List<CorePlayerAudioSource> _sources = const [];
 
   final BehaviorSubject<bool> _shuffleSubject = BehaviorSubject<bool>.seeded(false);
+
+  /// Seeded with a zero/zero record so freshly mounted scrubber widgets get
+  /// an immediate snapshot rather than a frame-one blank. Fed by a
+  /// `Rx.combineLatest2(position, duration)` pipeline plugged in from the
+  /// constructor.
+  final BehaviorSubject<CorePlayerPositionData> _positionDataSubject =
+      BehaviorSubject<CorePlayerPositionData>.seeded(
+        (position: Duration.zero, duration: Duration.zero),
+      );
+
+  /// Re-entrancy guard for the queue-exhaustion handler. media_kit's
+  /// `completed` can emit `true` more than once for the same end-of-stream
+  /// (rapid replays of the last frame, audio backend quirks). We flip
+  /// this on the first invocation per "real" end and clear it when the
+  /// queue grows (append succeeded) or when setQueue replaces the queue.
+  bool _queueExhaustedHandled = false;
 
   final StreamController<CorePlayerFailure> _errorController = StreamController<CorePlayerFailure>.broadcast();
 
@@ -501,6 +544,10 @@ class CorePlayerMediaKit extends CorePlayer with CorePlayerMediaKitConcurrency {
   late final ValueStream<Duration> bufferStream = _bufferSubject.stream;
   @override
   late final ValueStream<bool> playingStream = _playingSubject.stream;
+
+  @override
+  late final ValueStream<CorePlayerPositionData> positionDataStream =
+      _positionDataSubject.stream;
 
   @override
   double get playbackSpeed => _rateSubject.value;
@@ -617,6 +664,8 @@ class CorePlayerMediaKit extends CorePlayer with CorePlayerMediaKitConcurrency {
   Future<void> _setQueueLocked(CorePlayerQueue queue, int token) async {
     if (_disposed) return;
     _playerErrorSubject.add(null);
+    // Fresh queue invalidates any prior exhaustion fire.
+    _queueExhaustedHandled = false;
 
     // Mutate the parallel typed-source list FIRST. The playlist stream
     // subscription will then produce the derived CorePlayerQueue once
@@ -1202,6 +1251,8 @@ class CorePlayerMediaKit extends CorePlayer with CorePlayerMediaKitConcurrency {
     await _volumeSubscription?.cancel();
     await _playlistSubscription?.cancel();
     await _shuffleSubscription?.cancel();
+    await _positionDataSubscription?.cancel();
+    await _queueExhaustedSubscription?.cancel();
 
     // 2. Run stop(fromDispose: true). It writes only to the external
     //    audio_handler streams + native player; our local subjects no longer
@@ -1221,6 +1272,7 @@ class CorePlayerMediaKit extends CorePlayer with CorePlayerMediaKitConcurrency {
     await _playingSubject.close();
     await _playerErrorSubject.close();
     await _playerStateSubject.close();
+    await _positionDataSubject.close();
     await _errorController.close();
 
     // 4. Notify observer (after local resources are closed; before native
