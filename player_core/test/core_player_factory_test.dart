@@ -167,6 +167,9 @@ class _FakeCorePlayer extends CorePlayer {
   @override
   Stream<CorePlayerFailure> get errorStream => const Stream<CorePlayerFailure>.empty();
   @override
+  Stream<CorePlaybackEvent> get playbackEventStream =>
+      const Stream<CorePlaybackEvent>.empty();
+  @override
   Future<void> stop({bool fromDispose = false}) async {}
   @override
   Future<void> dispose() async {}

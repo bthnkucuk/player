@@ -13,6 +13,10 @@ mixin CorePlayerMediaKitNavigation on CorePlayer
   BehaviorSubject<bool> get _shuffleSubject;
   List<CoreAudioSource> get _sources;
   Never _throwAndEmit(CorePlayerFailure failure);
+  // Capture-then-fire seam supplied by [CorePlayerMediaKitEvents]. Called
+  // *after* the native jump lands so the typed [PlaybackEndedBySkipEvent]
+  // carries the pre-skip position captured at the call site.
+  void _emitSkipEvent(Duration skippedFromPosition);
 
   @override
   Future<void> setLoopMode(CorePlayerLoopMode mode) async {
@@ -51,6 +55,9 @@ mixin CorePlayerMediaKitNavigation on CorePlayer
     // index + observer.onLoad are updated by the [player.stream.playlist]
     // listener installed in the constructor.
     final wasPlaying = isPlaying;
+    // Capture the position BEFORE the native jump so the typed skip event
+    // reflects "where the user was" rather than the post-jump zero.
+    final preSkipPosition = position;
     if (wasPlaying) {
       // Fix 3 (Layer 1) / PROBE-B1: re-claim AVAudioSession BEFORE libmpv's
       // AudioUnit swap so a contested app (e.g. backgrounded YouTube) doesn't
@@ -58,6 +65,7 @@ mixin CorePlayerMediaKitNavigation on CorePlayer
       await audioHandler?.requestActiveSession();
     }
     await runOnNative(() => player.next());
+    _emitSkipEvent(preSkipPosition);
     if (wasPlaying) {
       // Idempotent post-jump re-activation: claw the session back if iOS
       // handed it away during the AU swap, before libmpv resumes output.
@@ -79,12 +87,14 @@ mixin CorePlayerMediaKitNavigation on CorePlayer
       _throwAndEmit(const QueueOutOfBoundsFailure('Already at first track'));
     }
     final wasPlaying = isPlaying;
+    final preSkipPosition = position;
     if (wasPlaying) {
       // Fix 3 (Layer 1) / PROBE-B1: re-claim AVAudioSession around libmpv's
       // AudioUnit swap so a contested app can't grab focus mid-switch.
       await audioHandler?.requestActiveSession();
     }
     await runOnNative(() => player.previous());
+    _emitSkipEvent(preSkipPosition);
     if (wasPlaying) {
       // Idempotent post-jump re-activation.
       await audioHandler?.requestActiveSession();
@@ -100,12 +110,14 @@ mixin CorePlayerMediaKitNavigation on CorePlayer
       _throwAndEmit(QueueOutOfBoundsFailure('Index $index out of bounds [0, ${_sources.length})'));
     }
     final wasPlaying = isPlaying;
+    final preSkipPosition = position;
     if (wasPlaying) {
       // Fix 3 (Layer 1) / PROBE-B1: re-claim AVAudioSession around libmpv's
       // AudioUnit swap so a contested app can't grab focus mid-switch.
       await audioHandler?.requestActiveSession();
     }
     await runOnNative(() => player.jump(index));
+    _emitSkipEvent(preSkipPosition);
     if (wasPlaying) {
       // Idempotent post-jump re-activation.
       await audioHandler?.requestActiveSession();
