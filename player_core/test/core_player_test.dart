@@ -8,10 +8,10 @@ class _FakeTuPlayer extends CorePlayer {
   _FakeTuPlayer();
 
   @override
-  CorePlayerAudioSource? get audioSource => null;
+  CoreAudioSource? get audioSource => null;
 
   @override
-  ValueStream<CorePlayerAudioSource?> get audioSourceStream => BehaviorSubject<CorePlayerAudioSource?>.seeded(null).stream;
+  ValueStream<CoreAudioSource?> get audioSourceStream => BehaviorSubject<CoreAudioSource?>.seeded(null).stream;
 
   @override
   CoreAudioHandler? get audioHandler => null;
@@ -108,10 +108,10 @@ class _FakeTuPlayer extends CorePlayer {
   Future<void> stop({bool fromDispose = false}) async {}
 
   @override
-  Future<void> load(CorePlayerAudioSource audioSource) async {}
+  Future<void> load(CoreAudioSource audioSource) async {}
 
   @override
-  Future<void> loadAndPlay(CorePlayerAudioSource audioSource) async {}
+  Future<void> loadAndPlay(CoreAudioSource audioSource) async {}
 
   @override
   CorePlayerQueue get queue => const CorePlayerQueue.empty();
@@ -133,13 +133,13 @@ class _FakeTuPlayer extends CorePlayer {
   Future<void> skipToIndex(int index) async {}
 
   @override
-  Future<void> insertNext(CorePlayerAudioSource source) async {}
+  Future<void> insertNext(CoreAudioSource source) async {}
 
   @override
-  Future<void> appendToQueue(CorePlayerAudioSource source) async {}
+  Future<void> appendToQueue(CoreAudioSource source) async {}
 
   @override
-  Future<void> appendAllToQueue(List<CorePlayerAudioSource> sources) async {}
+  Future<void> appendAllToQueue(List<CoreAudioSource> sources) async {}
 
   @override
   Future<void> removeAt(int index) async {}
@@ -150,7 +150,7 @@ class _FakeTuPlayer extends CorePlayer {
   @override
   Future<void> replaceAt(
     int index,
-    CorePlayerAudioSource source, {
+    CoreAudioSource source, {
     bool preservePosition = false,
   }) async {}
 
@@ -229,7 +229,7 @@ void main() {
     test('default callbacks are no-ops (do not throw)', () {
       const base = _DefaultObserver();
       final player = _FakeTuPlayer();
-      const src = CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3');
+      final src = HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3'));
       base.onCreate(player);
       base.onLoad(player, src);
       base.onPlay(player);
@@ -249,7 +249,7 @@ class _RecordingObserver extends CorePlayerObserver {
   @override
   void onCreate(CorePlayer player) => calls.add('onCreate');
   @override
-  void onLoad(CorePlayer player, CorePlayerAudioSource source) => calls.add('onLoad:${source.title}');
+  void onLoad(CorePlayer player, CoreAudioSource source) => calls.add('onLoad:${source.title}');
   @override
   void onPlay(CorePlayer player) => calls.add('onPlay');
   @override

@@ -8,102 +8,169 @@ import 'test_setup.dart';
 void main() {
   setUpAll(enableEquatableStringify);
 
-  group('CorePlayerAudioSource JSON', () {
-    test('round-trips a url-only source through Equatable equality', () {
-      const source = CorePlayerAudioSource(
+  group('CoreAudioSource JSON', () {
+    test('round-trips an HttpAudioSource through Equatable equality', () {
+      final source = HttpAudioSource(
         title: 'Science Friday',
-        url: 'https://example.com/scifri.mp3',
+        url: Uri.parse('https://example.com/scifri.mp3'),
       );
-      final restored = CorePlayerAudioSource.fromJson(source.toJson());
+      final restored = CoreAudioSource.fromJson(source.toJson());
+      expect(restored, isA<HttpAudioSource>());
       expect(restored, equals(source));
     });
 
-    test('round-trips a file-only source', () {
-      const source = CorePlayerAudioSource(
+    test('round-trips a FileAudioSource', () {
+      const source = FileAudioSource(
         title: 'Local Recording',
-        filePath: '/tmp/recording.m4a',
+        path: '/tmp/recording.m4a',
       );
-      final restored = CorePlayerAudioSource.fromJson(source.toJson());
+      final restored = CoreAudioSource.fromJson(source.toJson());
+      expect(restored, isA<FileAudioSource>());
       expect(restored, equals(source));
     });
 
-    test('round-trips a source with httpHeaders + artUri + metadata', () {
-      final source = CorePlayerAudioSource(
+    test('round-trips an HttpAudioSource with headers + artUri + metadata', () {
+      final source = HttpAudioSource(
         title: 'Full',
-        url: 'https://example.com/full.mp3',
-        album: 'Album',
+        url: Uri.parse('https://example.com/full.mp3'),
         artist: 'Artist',
-        genre: 'Genre',
         artUri: Uri.parse('https://example.com/cover.png'),
-        httpHeaders: const {'Authorization': 'Bearer abc123'},
+        headers: const {'Authorization': 'Bearer abc123'},
       );
-      final restored = CorePlayerAudioSource.fromJson(source.toJson());
+      final restored = CoreAudioSource.fromJson(source.toJson()) as HttpAudioSource;
       expect(restored, equals(source));
-      expect(restored.httpHeaders, source.httpHeaders);
+      expect(restored.headers, source.headers);
       expect(restored.artUri, source.artUri);
     });
 
     test('round-trips through JsonCodec (production cold-launch path)', () {
-      final source = CorePlayerAudioSource(
+      final source = HttpAudioSource(
         title: 'JSON path',
-        url: 'https://example.com/json.mp3',
+        url: Uri.parse('https://example.com/json.mp3'),
         artUri: Uri.parse('https://example.com/json-cover.jpg'),
-        httpHeaders: const {'X-Trace': 'abc'},
+        headers: const {'X-Trace': 'abc'},
       );
       final encoded = jsonEncode(source.toJson());
       final decoded = jsonDecode(encoded) as Map<String, Object?>;
-      expect(CorePlayerAudioSource.fromJson(decoded), equals(source));
+      expect(CoreAudioSource.fromJson(decoded), equals(source));
     });
 
-    test('emits "remote" type when url is set, "file" otherwise', () {
-      const remote = CorePlayerAudioSource(title: 'r', url: 'https://x');
-      const file = CorePlayerAudioSource(title: 'f', filePath: '/tmp/x');
-      const neither = CorePlayerAudioSource(title: 'n');
-      expect(remote.toJson()['type'], 'remote');
+    test('emits "http" type for HttpAudioSource and "file" for FileAudioSource', () {
+      final http = HttpAudioSource(title: 'r', url: Uri.parse('https://x'));
+      const file = FileAudioSource(title: 'f', path: '/tmp/x');
+      expect(http.toJson()['type'], 'http');
       expect(file.toJson()['type'], 'file');
-      // Neither url nor filePath: still emit 'file' so play-time
-      // InvalidMediaSourceFailure (not silent drop in fromJson) surfaces.
-      expect(neither.toJson()['type'], 'file');
     });
 
-    test('rejects unknown type discriminator', () {
+    test('rejects unknown type discriminator with SnapshotMalformedFailure', () {
       expect(
-        () => CorePlayerAudioSource.fromJson(<String, Object?>{
+        () => CoreAudioSource.fromJson(<String, Object?>{
           'type': 'live',
           'title': 'Future-Faz-S',
         }),
-        throwsFormatException,
+        throwsA(isA<SnapshotMalformedFailure>()),
       );
     });
 
-    test('rejects missing required title', () {
+    test('rejects HttpAudioSource missing required title', () {
       expect(
-        () => CorePlayerAudioSource.fromJson(<String, Object?>{'type': 'remote', 'url': 'https://x'}),
-        throwsFormatException,
+        () => CoreAudioSource.fromJson(<String, Object?>{
+          'type': 'http',
+          'url': 'https://x',
+        }),
+        throwsA(isA<SnapshotMalformedFailure>()),
       );
     });
 
-    test('returns mutable copies of httpHeaders (no shared state)', () {
-      final source = CorePlayerAudioSource(
+    test('rejects HttpAudioSource missing required url', () {
+      expect(
+        () => CoreAudioSource.fromJson(<String, Object?>{
+          'type': 'http',
+          'title': 'no url',
+        }),
+        throwsA(isA<SnapshotMalformedFailure>()),
+      );
+    });
+
+    test('rejects FileAudioSource missing required path', () {
+      expect(
+        () => CoreAudioSource.fromJson(<String, Object?>{
+          'type': 'file',
+          'title': 'no path',
+        }),
+        throwsA(isA<SnapshotMalformedFailure>()),
+      );
+    });
+
+    test('returns mutable copies of headers (no shared state)', () {
+      final source = HttpAudioSource(
         title: 'mutable check',
-        url: 'https://example.com/x.mp3',
-        httpHeaders: const {'a': 'b'},
+        url: Uri.parse('https://example.com/x.mp3'),
+        headers: const {'a': 'b'},
       );
       final json = source.toJson();
-      final headers = json['httpHeaders'] as Map<String, String>;
+      final headers = json['headers'] as Map<String, String>;
       // Mutating the returned map must NOT corrupt the source.
       headers['evil'] = 'mutation';
-      expect(source.httpHeaders, {'a': 'b'});
+      expect(source.headers, {'a': 'b'});
+    });
+
+    test('estimatedDuration round-trips for HttpAudioSource', () {
+      final source = HttpAudioSource(
+        title: 'est',
+        url: Uri.parse('https://example.com/x.mp3'),
+        estimatedDuration: const Duration(minutes: 2, seconds: 30),
+      );
+      final restored = CoreAudioSource.fromJson(source.toJson());
+      expect(restored, equals(source));
+      expect(restored.estimatedDuration, const Duration(minutes: 2, seconds: 30));
+    });
+
+    test('estimatedDuration round-trips for FileAudioSource', () {
+      const source = FileAudioSource(
+        title: 'est-file',
+        path: '/tmp/x.mp3',
+        estimatedDuration: Duration(seconds: 42),
+      );
+      final restored = CoreAudioSource.fromJson(source.toJson());
+      expect(restored, equals(source));
+      expect(restored.estimatedDuration, const Duration(seconds: 42));
+    });
+
+    test('null estimatedDuration is omitted from JSON', () {
+      final source = HttpAudioSource(
+        title: 't',
+        url: Uri.parse('https://example.com/x.mp3'),
+      );
+      expect(source.toJson().containsKey('estimatedMs'), isFalse);
+    });
+
+    test('exhaustive switch on sealed CoreAudioSource compiles cleanly', () {
+      // Compile-time check: an exhaustive switch over the sealed
+      // hierarchy that the analyzer accepts. Faz S2/S3 will need to add
+      // arms when they ship new subtypes — that diff must touch this
+      // test along with the rest of the codebase, which is the point of
+      // the sealed type.
+      final CoreAudioSource source =
+          HttpAudioSource(title: 't', url: Uri.parse('https://example.com/x.mp3'));
+      final kind = switch (source) {
+        HttpAudioSource() => 'http',
+        FileAudioSource() => 'file',
+      };
+      expect(kind, 'http');
     });
   });
 
   group('CorePlayerQueue JSON', () {
-    const src1 = CorePlayerAudioSource(title: 'A', url: 'https://example.com/a.mp3');
-    const src2 = CorePlayerAudioSource(title: 'B', url: 'https://example.com/b.mp3');
-    const src3 = CorePlayerAudioSource(title: 'C', url: 'https://example.com/c.mp3');
+    final src1 =
+        HttpAudioSource(title: 'A', url: Uri.parse('https://example.com/a.mp3'));
+    final src2 =
+        HttpAudioSource(title: 'B', url: Uri.parse('https://example.com/b.mp3'));
+    final src3 =
+        HttpAudioSource(title: 'C', url: Uri.parse('https://example.com/c.mp3'));
 
     test('round-trips a multi-item queue bit-for-bit', () {
-      const queue = CorePlayerQueue([src1, src2, src3], currentIndex: 2);
+      final queue = CorePlayerQueue([src1, src2, src3], currentIndex: 2);
       final restored = CorePlayerQueue.fromJson(queue.toJson());
       expect(restored.sources, equals(queue.sources));
       expect(restored.currentIndex, queue.currentIndex);
@@ -118,11 +185,25 @@ void main() {
     });
 
     test('round-trips through JsonCodec', () {
-      const queue = CorePlayerQueue([src1, src2], currentIndex: 1);
+      final queue = CorePlayerQueue([src1, src2], currentIndex: 1);
       final encoded = jsonEncode(queue.toJson());
       final decoded = jsonDecode(encoded) as Map<String, Object?>;
       final restored = CorePlayerQueue.fromJson(decoded);
       expect(restored.sources, queue.sources);
+      expect(restored.currentIndex, 1);
+    });
+
+    test('round-trips a mixed-subtype queue', () {
+      final mixed = CorePlayerQueue(<CoreAudioSource>[
+        src1,
+        const FileAudioSource(title: 'F', path: '/tmp/f.mp3'),
+        src2,
+      ], currentIndex: 1);
+      final restored = CorePlayerQueue.fromJson(mixed.toJson());
+      expect(restored.sources, hasLength(3));
+      expect(restored.sources[0], isA<HttpAudioSource>());
+      expect(restored.sources[1], isA<FileAudioSource>());
+      expect(restored.sources[2], isA<HttpAudioSource>());
       expect(restored.currentIndex, 1);
     });
 
@@ -164,7 +245,8 @@ void main() {
       // index if a queue was trimmed between snapshot and restore. Clamp
       // rather than throwing so the player still resumes (worst case: at
       // the last track in the queue).
-      final json = const CorePlayerQueue([src1, src2], currentIndex: 0).toJson();
+      final json =
+          CorePlayerQueue([src1, src2], currentIndex: 0).toJson();
       json['activeIndex'] = 99;
       final restored = CorePlayerQueue.fromJson(json);
       expect(restored.currentIndex, 1);

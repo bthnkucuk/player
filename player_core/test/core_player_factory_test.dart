@@ -40,7 +40,7 @@ void main() {
     });
 
     test('create forwards all args to factory', () {
-      CorePlayerAudioSource? capturedSource;
+      CoreAudioSource? capturedSource;
       CoreAudioHandler? capturedHandler;
       bool? capturedAutoLoad;
       CorePlayer.registerFactory(({audioSource, audioHandler, autoLoad = false}) {
@@ -50,7 +50,7 @@ void main() {
         return _FakeTuPlayer();
       });
 
-      const src = CorePlayerAudioSource(title: 'x', url: 'https://x');
+      final src = HttpAudioSource(title: 'x', url: Uri.parse('https://x'));
       CorePlayer.create(audioSource: src, autoLoad: true);
       expect(capturedSource, same(src));
       expect(capturedHandler, isNull);
@@ -64,9 +64,9 @@ void main() {
 /// that these factory tests never exercise.
 class _FakeTuPlayer extends CorePlayer {
   @override
-  CorePlayerAudioSource? get audioSource => null;
+  CoreAudioSource? get audioSource => null;
   @override
-  ValueStream<CorePlayerAudioSource?> get audioSourceStream => BehaviorSubject<CorePlayerAudioSource?>.seeded(null).stream;
+  ValueStream<CoreAudioSource?> get audioSourceStream => BehaviorSubject<CoreAudioSource?>.seeded(null).stream;
   @override
   CoreAudioHandler? get audioHandler => null;
   @override
@@ -99,9 +99,9 @@ class _FakeTuPlayer extends CorePlayer {
   @override
   bool get isDisposed => false;
   @override
-  Future<void> load(CorePlayerAudioSource audioSource) async {}
+  Future<void> load(CoreAudioSource audioSource) async {}
   @override
-  Future<void> loadAndPlay(CorePlayerAudioSource audioSource) async {}
+  Future<void> loadAndPlay(CoreAudioSource audioSource) async {}
   @override
   CorePlayerQueue get queue => const CorePlayerQueue.empty();
   @override
@@ -116,11 +116,11 @@ class _FakeTuPlayer extends CorePlayer {
   @override
   Future<void> skipToIndex(int index) async {}
   @override
-  Future<void> insertNext(CorePlayerAudioSource source) async {}
+  Future<void> insertNext(CoreAudioSource source) async {}
   @override
-  Future<void> appendToQueue(CorePlayerAudioSource source) async {}
+  Future<void> appendToQueue(CoreAudioSource source) async {}
   @override
-  Future<void> appendAllToQueue(List<CorePlayerAudioSource> sources) async {}
+  Future<void> appendAllToQueue(List<CoreAudioSource> sources) async {}
   @override
   Future<void> removeAt(int index) async {}
   @override
@@ -128,7 +128,7 @@ class _FakeTuPlayer extends CorePlayer {
   @override
   Future<void> replaceAt(
     int index,
-    CorePlayerAudioSource source, {
+    CoreAudioSource source, {
     bool preservePosition = false,
   }) async {}
   @override

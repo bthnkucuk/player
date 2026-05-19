@@ -14,23 +14,23 @@ Future<void> demo() async {
   final player = CorePlayer.create(audioHandler: CoreAudioHandler.instance);
 
   // Single-track convenience.
-  const source = CorePlayerAudioSource(
+  final source = HttpAudioSource(
     title: 'Demo Track',
     artist: 'Demo Artist',
-    url: 'https://example.com/audio.mp3',
+    url: Uri.parse('https://example.com/audio.mp3'),
   );
   // Single-flight: rapid double-taps coalesce to one in-flight Future.
   await player.loadAndPlay(source);
 
   // Or queue-based playback (Phase 10+):
-  final queue = CorePlayerQueue(<CorePlayerAudioSource>[
-    const CorePlayerAudioSource(
+  final queue = CorePlayerQueue(<CoreAudioSource>[
+    HttpAudioSource(
       title: 'Track 1',
-      url: 'https://example.com/1.mp3',
+      url: Uri.parse('https://example.com/1.mp3'),
     ),
-    const CorePlayerAudioSource(
+    HttpAudioSource(
       title: 'Track 2',
-      url: 'https://example.com/2.mp3',
+      url: Uri.parse('https://example.com/2.mp3'),
     ),
   ]);
   await player.setQueue(queue);
