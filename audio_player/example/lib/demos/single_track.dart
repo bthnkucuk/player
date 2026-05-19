@@ -177,6 +177,7 @@ class _SingleTrackDemoState extends State<SingleTrackDemo> {
                             AsyncSnapshot<bool> playingSnap,
                           ) {
                             return PlayPauseStopButtons(
+                              player: _player,
                               state: state,
                               isPlaying: playingSnap.data ?? false,
                               onPlay: () => _player.play(),
