@@ -127,6 +127,28 @@ class _FakeTuPlayer extends CorePlayer {
   Future<void> skipToIndex(int index) async {}
 
   @override
+  Future<void> insertNext(CorePlayerAudioSource source) async {}
+
+  @override
+  Future<void> appendToQueue(CorePlayerAudioSource source) async {}
+
+  @override
+  Future<void> appendAllToQueue(List<CorePlayerAudioSource> sources) async {}
+
+  @override
+  Future<void> removeAt(int index) async {}
+
+  @override
+  Future<void> moveItem(int from, int to) async {}
+
+  @override
+  Future<void> replaceAt(
+    int index,
+    CorePlayerAudioSource source, {
+    bool preservePosition = false,
+  }) async {}
+
+  @override
   Future<void> seek(Duration position) async {}
 
   @override
