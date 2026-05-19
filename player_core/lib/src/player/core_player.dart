@@ -259,6 +259,43 @@ abstract class CorePlayer {
   /// Sets the volume. Values are clamped to [0.0, 1.0].
   Future<void> setVolume(double volume);
 
+  /// Set the gains for the 10-band parametric equalizer.
+  ///
+  /// Each element of [gainsDb] is the dB gain for a fixed mpv band — from
+  /// 31.25 Hz at index 0 through 16 kHz at index 9 (libmpv `equalizer` filter
+  /// convention). Values are clamped to [-12.0, 12.0] dB per band.
+  ///
+  /// Pass a list of exactly 10 doubles. Shorter lists are rejected.
+  /// Pass `[0, 0, 0, 0, 0, 0, 0, 0, 0, 0]` to flatten the EQ.
+  ///
+  /// Engines that don't support runtime EQ (see [capabilities.supportsEqualizer])
+  /// surface an [UnsupportedFeatureFailure] both as a thrown exception and on
+  /// [errorStream].
+  Future<void> setEqualizerBands(List<double> gainsDb);
+
+  /// Current EQ gains. Defaults to ten zeros until [setEqualizerBands] is
+  /// called. Always 10 elements long.
+  List<double> get equalizerBands;
+
+  /// Stream of EQ gain changes. Emits a fresh `List<double>` each call.
+  Stream<List<double>> get equalizerBandsStream;
+
+  /// Convenience: equalizer band center frequencies in Hz, in the order the
+  /// gains list addresses them. Stable: `[31.25, 62.5, 125, 250, 500, 1000,
+  /// 2000, 4000, 8000, 16000]`.
+  static const List<double> equalizerBandFrequenciesHz = <double>[
+    31.25,
+    62.5,
+    125,
+    250,
+    500,
+    1000,
+    2000,
+    4000,
+    8000,
+    16000,
+  ];
+
   /// Current loop mode. Defaults to [CorePlayerLoopMode.off].
   CorePlayerLoopMode get loopMode;
 
