@@ -65,10 +65,31 @@ void main() {
     test('rejects unknown type discriminator with SnapshotMalformedFailure', () {
       expect(
         () => CoreAudioSource.fromJson(<String, Object?>{
-          'type': 'live',
+          'type': 'unknown-future-type',
           'title': 'Future-Faz-S',
         }),
         throwsA(isA<SnapshotMalformedFailure>()),
+      );
+    });
+
+    test('rejects the "live" discriminator with a dedicated error message', () {
+      // LiveAudioSource is process-local — the snapshot path explicitly
+      // refuses to resurrect it (see LiveAudioSource.toJson). The "live"
+      // arm of fromJson is here for symmetry so a queue snapshot that
+      // somehow carries a live entry fails with a clear, named reason
+      // rather than the generic "unknown type" branch.
+      expect(
+        () => CoreAudioSource.fromJson(<String, Object?>{
+          'type': 'live',
+          'title': 'Live segments',
+        }),
+        throwsA(
+          isA<SnapshotMalformedFailure>().having(
+            (f) => f.message,
+            'message',
+            contains('LiveAudioSource'),
+          ),
+        ),
       );
     });
 
@@ -156,6 +177,7 @@ void main() {
       final kind = switch (source) {
         HttpAudioSource() => 'http',
         FileAudioSource() => 'file',
+        LiveAudioSource() => 'live',
       };
       expect(kind, 'http');
     });
