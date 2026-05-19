@@ -63,10 +63,12 @@ void main() {
     });
 
     test('rejects unknown type discriminator with SnapshotMalformedFailure', () {
+      // 'live' is reserved for Faz S3, so use a clearly-bogus value here
+      // that no shipped Faz can accidentally claim.
       expect(
         () => CoreAudioSource.fromJson(<String, Object?>{
-          'type': 'live',
-          'title': 'Future-Faz-S',
+          'type': 'completely-bogus',
+          'title': 'Future-Faz-X',
         }),
         throwsA(isA<SnapshotMalformedFailure>()),
       );
@@ -145,17 +147,86 @@ void main() {
       expect(source.toJson().containsKey('estimatedMs'), isFalse);
     });
 
+    test('round-trips an HlsAudioSource', () {
+      final source = HlsAudioSource(
+        title: 'HLS Live',
+        manifestUrl: Uri.parse('https://example.com/live.m3u8'),
+      );
+      final restored = CoreAudioSource.fromJson(source.toJson());
+      expect(restored, isA<HlsAudioSource>());
+      expect(restored, equals(source));
+    });
+
+    test('round-trips an HlsAudioSource with headers + artUri + metadata', () {
+      final source = HlsAudioSource(
+        title: 'HLS Full',
+        manifestUrl: Uri.parse('https://example.com/full.m3u8'),
+        artist: 'Broadcaster',
+        artUri: Uri.parse('https://example.com/hls-cover.png'),
+        estimatedDuration: const Duration(minutes: 5),
+        headers: const {'Authorization': 'Bearer hls'},
+      );
+      final restored =
+          CoreAudioSource.fromJson(source.toJson()) as HlsAudioSource;
+      expect(restored, equals(source));
+      expect(restored.headers, source.headers);
+      expect(restored.artUri, source.artUri);
+      expect(restored.estimatedDuration, source.estimatedDuration);
+    });
+
+    test('emits "hls" type discriminator for HlsAudioSource', () {
+      final hls = HlsAudioSource(
+        title: 'h',
+        manifestUrl: Uri.parse('https://x/y.m3u8'),
+      );
+      expect(hls.toJson()['type'], 'hls');
+    });
+
+    test('rejects HlsAudioSource missing required manifestUrl', () {
+      expect(
+        () => CoreAudioSource.fromJson(<String, Object?>{
+          'type': 'hls',
+          'title': 'no manifest',
+        }),
+        throwsA(isA<SnapshotMalformedFailure>()),
+      );
+    });
+
+    test('rejects HlsAudioSource missing required title', () {
+      expect(
+        () => CoreAudioSource.fromJson(<String, Object?>{
+          'type': 'hls',
+          'manifestUrl': 'https://example.com/x.m3u8',
+        }),
+        throwsA(isA<SnapshotMalformedFailure>()),
+      );
+    });
+
+    test('HlsAudioSource headers JSON view does not share state with the '
+        'source', () {
+      final source = HlsAudioSource(
+        title: 'mutable check',
+        manifestUrl: Uri.parse('https://example.com/x.m3u8'),
+        headers: const {'a': 'b'},
+      );
+      final json = source.toJson();
+      final headers = json['headers'] as Map<String, String>;
+      headers['evil'] = 'mutation';
+      expect(source.headers, {'a': 'b'});
+    });
+
     test('exhaustive switch on sealed CoreAudioSource compiles cleanly', () {
       // Compile-time check: an exhaustive switch over the sealed
-      // hierarchy that the analyzer accepts. Faz S2/S3 will need to add
-      // arms when they ship new subtypes — that diff must touch this
-      // test along with the rest of the codebase, which is the point of
-      // the sealed type.
+      // hierarchy that the analyzer accepts. Faz S3 will need to add an
+      // arm when LiveAudioSource ships — that diff must touch this test
+      // along with the rest of the codebase, which is the point of the
+      // sealed type.
       final CoreAudioSource source =
           HttpAudioSource(title: 't', url: Uri.parse('https://example.com/x.mp3'));
       final kind = switch (source) {
         HttpAudioSource() => 'http',
         FileAudioSource() => 'file',
+        HlsAudioSource() => 'hls',
       };
       expect(kind, 'http');
     });

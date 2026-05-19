@@ -6,6 +6,7 @@ import 'package:audio_player/audio_player.dart';
 import 'demos/auto_radio_and_position_stream.dart';
 import 'demos/capabilities.dart';
 import 'demos/debug_logs.dart';
+import 'demos/hls.dart';
 import 'demos/raw_media_kit.dart';
 import 'demos/multi_scope.dart';
 import 'demos/observer.dart';
@@ -148,6 +149,12 @@ class HomePage extends StatelessWidget {
       icon: Icons.checklist,
       builder: _buildCapabilities,
     ),
+    _Demo(
+      title: 'HLS audio source',
+      subtitle: 'Play an .m3u8 manifest URL — libmpv native HLS demuxer',
+      icon: Icons.cell_tower,
+      builder: _buildHls,
+    ),
   ];
 
   static Widget _buildSingleTrack(BuildContext _) => const SingleTrackDemo();
@@ -162,6 +169,7 @@ class HomePage extends StatelessWidget {
   static Widget _buildAutoRadio(BuildContext _) =>
       const AutoRadioAndPositionStreamDemo();
   static Widget _buildCapabilities(BuildContext _) => const CapabilitiesDemo();
+  static Widget _buildHls(BuildContext _) => const HlsDemo();
 
   @override
   Widget build(BuildContext context) {

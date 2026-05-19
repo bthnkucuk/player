@@ -667,18 +667,23 @@ class CorePlayerMediaKit extends CorePlayer
 
   /// Maps a [CoreAudioSource] into a media_kit [Media]. HTTP sources forward
   /// their [HttpAudioSource.headers] verbatim; file sources hand the bare
-  /// [FileAudioSource.path] to media_kit's resolver.
+  /// [FileAudioSource.path] to media_kit's resolver. HLS sources hand the
+  /// `.m3u8` manifest URL straight to media_kit — libmpv detects the manifest
+  /// content-type and engages its HLS demuxer without any extra wrapper
+  /// configuration.
   ///
   /// The switch is exhaustive on the sealed [CoreAudioSource] hierarchy; Faz
-  /// S2 ([HlsAudioSource]) and Faz S3 ([LiveAudioSource]) MUST extend it.
-  /// [InvalidMediaSourceFailure] is reserved for residual runtime
-  /// malformedness (e.g. empty path / unsupported transports) — the sealed
-  /// type itself prevents the obvious "neither url nor path" state.
+  /// S3 ([LiveAudioSource]) MUST extend it. [InvalidMediaSourceFailure] is
+  /// reserved for residual runtime malformedness (e.g. empty path /
+  /// unsupported transports) — the sealed type itself prevents the obvious
+  /// "neither url nor path" state.
   @override
   Media _toMedia(CoreAudioSource src) => switch (src) {
     HttpAudioSource(:final url, :final headers) =>
         Media(url.toString(), httpHeaders: headers),
     FileAudioSource(:final path) => Media(path),
+    HlsAudioSource(:final manifestUrl, :final headers) =>
+        Media(manifestUrl.toString(), httpHeaders: headers),
   };
 
   @override
@@ -952,6 +957,7 @@ class CorePlayerMediaKit extends CorePlayer
     final id = switch (audioSource) {
       HttpAudioSource(:final url) => url.toString(),
       FileAudioSource(:final path) => path,
+      HlsAudioSource(:final manifestUrl) => manifestUrl.toString(),
     };
     final engineDuration = player.state.duration;
     final duration = engineDuration > Duration.zero
