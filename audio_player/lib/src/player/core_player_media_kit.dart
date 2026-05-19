@@ -927,7 +927,13 @@ class CorePlayerMediaKit extends CorePlayer with CorePlayerMediaKitConcurrency {
     final clampedTo = _clampQueueIndex(to, length);
     if (clampedFrom == clampedTo) return;
     _moveInPlace(_sources, clampedFrom, clampedTo);
-    await runOnNative(() => player.move(clampedFrom, clampedTo));
+    // Public contract: source at [from] ends up at index [to]. mpv's
+    // `playlist-move <from> <to>` inserts the item at position `to - 0.5`
+    // AFTER the removal, so to land it at final index [clampedTo] we
+    // must pass `clampedTo + 1` when moving forward (the removal shifts
+    // later items left by one). Backward moves use [clampedTo] unchanged.
+    final nativeTo = clampedTo >= clampedFrom ? clampedTo + 1 : clampedTo;
+    await runOnNative(() => player.move(clampedFrom, nativeTo));
   }
 
   @override

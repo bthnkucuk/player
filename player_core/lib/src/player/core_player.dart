@@ -183,9 +183,12 @@ abstract class CorePlayer {
   /// for out-of-range indices.
   Future<void> removeAt(int index);
 
-  /// Moves the queue item from [from] to [to]. Both indices are clamped
-  /// into `[0, queue.length)`. The active cursor follows the moved item,
-  /// so the playing track is never re-opened.
+  /// Moves the queue item from [from] to [to]. After the call returns, the
+  /// source previously at [from] occupies index [to] in the resulting queue
+  /// (i.e. [to] is the destination slot in the FINAL list, not the
+  /// pre-removal list). Both indices are clamped into `[0, queue.length)`.
+  /// The active cursor follows the moved item, so the playing track is
+  /// never re-opened.
   Future<void> moveItem(int from, int to);
 
   /// Replaces the queue item at [index] with [source]. When

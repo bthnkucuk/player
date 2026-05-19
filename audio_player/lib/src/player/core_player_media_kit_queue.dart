@@ -11,10 +11,10 @@ int _clampQueueIndex(int index, int length) {
   return index;
 }
 
-/// Mirrors media_kit's native `move(from, to)` semantics on a wrapper-side
-/// `List<CorePlayerAudioSource>`: removes the item at [from] then re-inserts
-/// it so it ends up at the position before the original [to] index
-/// (equivalent to mpv's `playlist-move <from> <to>`).
+/// Wrapper-side mirror of the public [CorePlayer.moveItem] contract:
+/// after the call, the item previously at [from] occupies index [to] in
+/// [list]. Implemented as `removeAt(from)` then `insert(to, item)`; both
+/// indices are assumed pre-clamped into `[0, list.length)` by the caller.
 ///
 /// Mutates [list] in place. The wrapper-side mirror is necessary because
 /// the platform broadcasts `playlistController.add(...)` synchronously
@@ -26,11 +26,5 @@ int _clampQueueIndex(int index, int length) {
 void _moveInPlace(List<CorePlayerAudioSource> list, int from, int to) {
   if (from == to) return;
   final item = list.removeAt(from);
-  // media_kit's SplayTreeMap trick inserts at `to - 0.5` AFTER removing
-  // `from`. Re-deriving here: if `to > from`, the removal shifted later
-  // items left by one, so the insertion position is `to - 1`. Otherwise
-  // it's `to` unchanged. This matches the `playlist-move` semantics
-  // observed in media_kit's `real.dart`.
-  final insertAt = to > from ? to - 1 : to;
-  list.insert(insertAt, item);
+  list.insert(to, item);
 }
