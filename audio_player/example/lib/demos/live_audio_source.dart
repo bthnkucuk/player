@@ -153,6 +153,27 @@ class _LiveAudioSourceDemoState extends State<LiveAudioSourceDemo> {
             Text('Queue (appended segments)', style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
             _LiveQueueList(queue: _liveQueue),
+            const SizedBox(height: 8),
+            // SoundHelix tracks are ~5 min each, so waiting for natural
+            // end-of-track transitions makes the gapless effect hard to
+            // observe in a demo session. This button bypasses the wait by
+            // calling skipToNext() directly; it is intentionally separate
+            // from the shared transport's skip control so the intent is
+            // obvious next to the live segment list.
+            Tooltip(
+              message:
+                  'Force-advance to the next segment to demo gapless transitions without waiting',
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.skip_next),
+                label: const Text('Skip to next segment'),
+                onPressed: _liveQueue.length > 1 &&
+                        _liveQueue.currentIndex < _liveQueue.length - 1
+                    ? () => unawaited(
+                          _player.skipToNext().catchError((Object _) {}),
+                        )
+                    : null,
+              ),
+            ),
             const SizedBox(height: 16),
             _ExpectedResultCard(),
           ],
@@ -211,11 +232,15 @@ class _ExpectedResultCard extends StatelessWidget {
               '- Press "Start live source". Audio begins on segment 1.\n'
               '- Every ~12 seconds, a new segment URL is emitted into the\n'
               '  stream and appears in the queue below.\n'
-              '- Playback transitions from segment to segment WITHOUT a pause\n'
-              "  or restart (gapless, via media_kit's native Playlist).\n"
-              '- After segment 5, the stream closes. The current segment plays\n'
-              '  to its end; then the queue is exhausted and playback stops\n'
-              '  (or onQueueExhausted fires if you have configured it).',
+              '- By default, segments transition naturally when each track\n'
+              '  finishes. The sample SoundHelix tracks are ~5 minutes long,\n'
+              '  so be patient OR tap "Skip to next segment" to demo the\n'
+              '  transition without waiting.\n'
+              '- "Skip to next segment" advances immediately and demonstrates\n'
+              '  gapless transition without re-loading the source.\n'
+              '- After all 5 segments emit and play through, the stream\n'
+              '  closes and the queue ends naturally (or onQueueExhausted\n'
+              '  fires if you have configured it).',
               style: TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
           ],
