@@ -11,82 +11,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:player_core/player_core.dart';
 import 'package:audio_player/src/player/core_audio_service_bridge.dart';
 
-/// Notification / lock screen controls: play, pause, stop, seek, skip next/prev.
-const _systemActions = {
-  MediaAction.seek,
-  MediaAction.rewind,
-  MediaAction.fastForward,
-  MediaAction.skipToNext,
-  MediaAction.skipToPrevious,
-};
-
-/// Default libmpv property overrides applied to every [Player] built by
-/// [CorePlayerMediaKit]. Tuned for long-form HTTP MP3 streaming on mobile:
-/// `demuxer-lavf-o=fflags=+fastseek` is the upstream-prescribed workaround
-/// for mpv#6537 (post-seek silence of ~26 s on HTTPS-served VBR/CBR MP3 due
-/// to libavformat's mp3dec scanning frame headers byte-by-byte from the seek
-/// estimate). The remaining keys harden the HTTP demuxer's reconnect /
-/// seek-table behaviour without altering decode semantics.
-///
-/// `cache-dir` is intentionally NOT listed here: its value is resolved
-/// asynchronously via `path_provider.getApplicationCacheDirectory()` at
-/// construction time. See `_applyLibmpvOptions` in
-/// `audio_player.dart`.
-const Map<String, String> _kDefaultLibmpvOptions = {
-  // HTTP / seek tuning (Fix 2 — mpv#6537 workaround group)
-  'demuxer-lavf-o': 'fflags=+fastseek',
-  'stream-lavf-o':
-      'reconnect=1,reconnect_streamed=1,reconnect_delay_max=5,seekable=1,multiple_requests=1',
-  'demuxer-readahead-secs': '20',
-  'force-seekable': 'yes',
-  // Audio output longevity (Fix 4):
-  // Keep the platform audio device open across track switches so libmpv
-  // doesn't tear down + recreate the iOS AudioUnit on `player.jump`. That
-  // teardown was a guaranteed AVAudioSession deactivation window through
-  // which backgrounded apps (YouTube) could reclaim focus, leaving our
-  // playback silent or both apps in focus limbo.
-  'audio-keep-open': 'yes',
-  'gapless-audio': 'yes',
-};
-
-/// Signature for the seam that pushes the effective libmpv option map onto a
-/// constructed [Player]. Production wires this to a closure that calls
-/// `(player.platform as dynamic).setProperty(name, value)` per entry; tests
-/// inject a capture-only implementation. The applier is invoked once per
-/// player construction; it is not re-invoked when options change later.
-typedef LibmpvOptionsApplier =
-    Future<void> Function(Player player, Map<String, String> options);
-
-LibmpvOptionsApplier _libmpvOptionsApplier = _defaultLibmpvOptionsApplier;
-
-/// Test seam: override the production applier so unit tests can capture the
-/// effective option map (defaults merged with `configuration.libmpvOptions`)
-/// without needing a real `NativePlayer`. Pass `null` to restore the
-/// production applier.
-@visibleForTesting
-void debugSetLibmpvOptionsApplierForTest(LibmpvOptionsApplier? applier) {
-  _libmpvOptionsApplier = applier ?? _defaultLibmpvOptionsApplier;
-}
-
-Future<void> _defaultLibmpvOptionsApplier(
-  Player player,
-  Map<String, String> options,
-) async {
-  final platform = player.platform;
-  if (platform == null) return;
-  final dynamic native = platform;
-  for (final entry in options.entries) {
-    try {
-      await native.setProperty(entry.key, entry.value);
-    } on Object catch (e, s) {
-      CorePlayerMediaKit.log(
-        'libmpv setProperty failed for "${entry.key}"',
-        error: e,
-        stackTrace: s,
-      );
-    }
-  }
-}
+part 'core_player_media_kit_libmpv.dart';
 
 class CorePlayerMediaKit extends CorePlayer {
   /// Seeks within this distance of the start are snapped to zero
@@ -209,12 +134,8 @@ class CorePlayerMediaKit extends CorePlayer {
        _autoLoad = autoLoad {
     // Apply libmpv property overrides (defaults + consumer overrides from
     // [CorePlayerConfiguration.libmpvOptions]) as soon as the [Player] exists.
-    // Async cache-dir resolution happens inside; the ctor stays sync.
-    // See mpv#6537 for the `+fastseek` rationale.
-    //
-    // Tracked via [_trackPending] so [dispose] can drain this before tearing
-    // down the native player — a stale `setProperty` against a disposed
-    // [Player] is the failure mode leak_tracker flagged in tuSpeech.
+    // Tracked via [_trackPending] so [dispose] drains a stale setProperty
+    // before tearing down the native player (mpv#6537 `+fastseek`).
     _trackPending(_applyLibmpvOptions());
     if (audioHandler != null) {
       // Constructor cannot be async; fire-and-forget the attach. The session
@@ -346,10 +267,8 @@ class CorePlayerMediaKit extends CorePlayer {
       if (_disposed) return;
       if (!(audioHandler?.isCurrent(this) ?? false)) return;
 
-      // System-control fire-and-forget dispatches are tracked through
-      // [_trackPending] so [dispose]'s drain catches any in-flight reaction
-      // to a lock-screen / interruption event that landed in the same
-      // microtask as the dispose call.
+      // Lock-screen / interruption reactions are tracked so dispose drains
+      // any in-flight dispatch landing in the same microtask.
       switch (event) {
         case CoreAudioHandlerPlayEvent():
           _trackPending(_swallowDisposed(play()));
@@ -410,10 +329,9 @@ class CorePlayerMediaKit extends CorePlayer {
     CorePlayer.observer?.onCreate(this);
   }
 
-  /// Pending fire-and-forget operations (constructor side-effects, lock-screen
-  /// event reactions, autoLoad). [dispose] drains this set BEFORE cancelling
-  /// subscriptions / closing subjects so a setProperty / attach landing
-  /// post-dispose does not run against a torn-down player.
+  /// Drained at the top of [dispose] before subscriptions cancel so an
+  /// in-flight setProperty / attach / autoLoad does not land against a
+  /// torn-down player.
   final Set<Future<void>> _pendingOps = <Future<void>>{};
 
   void _trackPending(Future<void> op) {
@@ -421,14 +339,12 @@ class CorePlayerMediaKit extends CorePlayer {
     op.whenComplete(() => _pendingOps.remove(op));
   }
 
-  /// Wrap a system-control fire-and-forget so it absorbs the
-  /// [PlayerDisposedFailure] thrown by every public mutator after [dispose]
-  /// runs. Without this swallow, a lock-screen event arriving in the same
-  /// microtask as [dispose] surfaces as an uncaught zone error.
+  /// Absorbs PlayerDisposedFailure so a system-control event that lands in
+  /// the same microtask as [dispose] does not surface as an uncaught zone
+  /// error.
   Future<void> _swallowDisposed(Future<void> op) {
     return op.catchError((Object e) {
       if (e is PlayerDisposedFailure) return;
-      // Anything else propagates to the zone error handler as before.
       throw e;
     });
   }
@@ -460,10 +376,8 @@ class CorePlayerMediaKit extends CorePlayer {
     if (!overrides.containsKey('cache-dir')) {
       try {
         final base = await getApplicationCacheDirectory();
-        // Re-check disposal: getApplicationCacheDirectory crosses the
-        // platform channel and can be slow on a cold start; dispose may have
-        // landed while we awaited. Pushing setProperty after that point
-        // races with player.dispose() (leak_tracker outage 2024-09).
+        // Re-check: the platform-channel round-trip can outlive a fast
+        // dispose; setProperty past this point races with player.dispose().
         if (_disposed) return;
         final dir = Directory('${base.path}/libmpv-cache');
         if (!dir.existsSync()) {
@@ -999,40 +913,35 @@ class CorePlayerMediaKit extends CorePlayer {
   @override
   bool get isDisposed => _disposed;
 
-  /// Synchronous part of dispose. Flips [_disposed] so any in-flight
-  /// constructor continuation (e.g. [_applyLibmpvOptions] mid-
-  /// `getApplicationCacheDirectory`) or system-control event reaction
-  /// observes disposal and bails before touching the player.
+  /// Flips [_disposed] synchronously so an in-flight constructor
+  /// continuation (e.g. [_applyLibmpvOptions] mid-await) or a system-control
+  /// event reaction observes disposal and bails before touching the player.
   ///
-  /// Mirrors [CoreMediaKitAudioServiceBridge.disposeSync] for symmetry:
-  /// callers owning a player from `State.dispose` should call this before
-  /// `unawaited(player.dispose())` so lifecycle-reachable references drop
-  /// synchronously, removing the State subtree from leak_tracker's
-  /// not-disposed roots even while the async drain in [dispose] completes.
+  /// Mirrors [CoreMediaKitAudioServiceBridge.disposeSync] — callers owning
+  /// a player from `State.dispose` should call this before
+  /// `unawaited(player.dispose())` so leak_tracker's not-disposed roots
+  /// drop the State subtree while the async drain still runs.
   ///
-  /// Idempotent. Does NOT release native resources — [dispose] must still
-  /// run for the full async teardown.
+  /// Idempotent. Does NOT release native resources — call [dispose] for
+  /// the full teardown.
   void disposeSync() {
     _disposed = true;
   }
 
   @override
   Future<void> dispose() async {
-    // Use a separate flag so a disposeSync() caller can still trigger the
-    // async teardown afterwards. _disposed alone would short-circuit here.
+    // Separate flag from _disposed so a prior disposeSync() does not block
+    // the async teardown.
     if (_asyncDisposeStarted) return;
     _asyncDisposeStarted = true;
-    // Set _disposed FIRST (before any await) so every fire-and-forget path
-    // observes disposal: _applyLibmpvOptions short-circuits after its awaits,
-    // event-handler reactions skip dispatch, and the public mutators throw
-    // PlayerDisposedFailure. Without this ordering, a setProperty / attach
-    // landing during the drain below races with player.dispose().
+    // _disposed must flip BEFORE any await so fire-and-forget paths
+    // (_applyLibmpvOptions re-checks, event-handler dispatch guard, public
+    // mutator throws) observe disposal during the drain that follows.
     _disposed = true;
 
-    // 0. Drain in-flight fire-and-forget operations BEFORE we cancel
-    //    subscriptions or tear down the native player. Errors are swallowed:
-    //    we're on the disposal path, the operations have already had their
-    //    chance to surface failures via the public error stream.
+    // Drain in-flight fire-and-forgets BEFORE cancelling subscriptions or
+    // tearing down the native player; errors swallowed because we're on the
+    // disposal path.
     if (_pendingOps.isNotEmpty) {
       final pending = _pendingOps.toList(growable: false);
       await Future.wait(
