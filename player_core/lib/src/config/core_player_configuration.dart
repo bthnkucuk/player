@@ -13,7 +13,7 @@ typedef CorePlayerLogCallback =
 /// playback; returning null or an empty list lets the player stop
 /// naturally.
 typedef CorePlayerOnQueueExhausted =
-    Future<List<CorePlayerAudioSource>>? Function();
+    Future<List<CoreAudioSource>>? Function();
 
 /// Wrapper-level configuration for [CorePlayer] implementations. Pass to the
 /// impl's `ensureInitialized()` to override defaults.

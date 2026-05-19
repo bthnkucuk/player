@@ -1,111 +1,188 @@
 import 'package:equatable/equatable.dart';
+import 'package:player_core/src/failures/core_player_failure.dart';
 
-/// JSON `type` discriminator emitted by [CorePlayerAudioSource.toJson]. Today
-/// only one source class exists, so this resolves to `'remote'` (when [url]
-/// is set) or `'file'` (when [filePath] is set, or neither is set —
-/// treated as a file placeholder). Future sealed subclasses (Faz S:
-/// `LiveAudioSource`, `HlsAudioSource`) will add their own discriminator
-/// values; [CorePlayerAudioSource.fromJson] should switch on this key.
-const String kCorePlayerAudioSourceTypeKey = 'type';
+/// JSON `type` discriminator key emitted by every concrete [CoreAudioSource]
+/// subtype. Faz S adds `'hls'` (S2) and `'live'` (S3); each new subtype owns
+/// its own discriminator value so [CoreAudioSource.fromJson]'s switch stays
+/// the single dispatch point.
+///
+/// Naming WHY: the previous schema used `'remote'` for HTTP sources because
+/// the type list was a one-element open set. Sealed subtypes now name the
+/// transport (`'http'`) so future variants (`'hls'`, `'live'`, ...) don't
+/// re-litigate what "remote" means. Persistence migration is a clean break —
+/// no released app reads these payloads yet, so we did not bump the queue
+/// envelope's `schemaVersion`.
+const String kCoreAudioSourceTypeKey = 'type';
 
-class CorePlayerAudioSource extends Equatable {
-  /// Remote URL (http/https/etc). Mutually exclusive with [filePath]; when
-  /// both are null `CorePlayer.load` throws.
-  final String? url;
+/// Sealed source hierarchy. Use the constructor of the specific subtype
+/// ([HttpAudioSource], [FileAudioSource]) — never instantiate the base
+/// directly. Faz S2 and S3 add `HlsAudioSource` and `LiveAudioSource`.
+///
+/// `title` is required (the lock-screen / `MediaItem` always needs one).
+/// `estimatedDuration` lives on the base class so every subtype inherits a
+/// pre-load hint the wrapper can seed `MediaItem.duration` with before the
+/// real duration arrives from the engine; consumers that know nothing leave
+/// it null and the wrapper falls back to zero until the engine reports back.
+sealed class CoreAudioSource extends Equatable {
+  const CoreAudioSource({
+    required this.title,
+    this.artist,
+    this.artUri,
+    this.estimatedDuration,
+  });
 
-  /// Local filesystem path. Replaces the previous `File` field — the
-  /// abstraction no longer depends on `dart:io` (which is not safe to import
-  /// from web builds).
-  final String? filePath;
-
+  /// Display title for the lock-screen and queue UI.
   final String title;
-  final String? album;
   final String? artist;
-  final String? genre;
   final Uri? artUri;
 
-  final Map<String, String>? httpHeaders;
+  /// Pre-load duration hint used by the wrapper to seed
+  /// `MediaItem.duration` before the real duration arrives from the engine.
+  /// Optional; callers that know nothing leave it null and the wrapper
+  /// emits zero until the engine reports back.
+  final Duration? estimatedDuration;
 
-  const CorePlayerAudioSource({
-    this.url,
-    this.filePath,
-    required this.title,
-    this.album,
-    this.artist,
-    this.genre,
-    this.artUri,
-    this.httpHeaders,
+  /// Serialises this source to a plain `Map<String, Object?>` suitable for
+  /// `JsonCodec.encode`. The `type` discriminator is the dispatch key for
+  /// [fromJson]; new sealed subtypes (Faz S2/S3) add their own value.
+  Map<String, Object?> toJson();
+
+  /// Discriminator-driven dispatch. Unknown `type` values reject with
+  /// [SnapshotMalformedFailure]. Faz S2 and S3 extend this switch.
+  factory CoreAudioSource.fromJson(Map<String, Object?> json) {
+    final type = json[kCoreAudioSourceTypeKey];
+    return switch (type) {
+      'http' => HttpAudioSource.fromJson(json),
+      'file' => FileAudioSource.fromJson(json),
+      _ => throw SnapshotMalformedFailure(
+        'Unknown CoreAudioSource type: $type',
+      ),
+    };
+  }
+}
+
+/// HTTP(S) streamed source. The transport-level `headers` map (kept on the
+/// subtype rather than the base) is forwarded to the engine's HTTP client
+/// for auth-gated streams. Faz S2 will add a separate [HlsAudioSource] for
+/// playlist-based adaptive bitrate streams — keep this class to single-URI
+/// progressive HTTP.
+final class HttpAudioSource extends CoreAudioSource {
+  const HttpAudioSource({
+    required this.url,
+    required super.title,
+    super.artist,
+    super.artUri,
+    super.estimatedDuration,
+    this.headers,
   });
+
+  final Uri url;
+  final Map<String, String>? headers;
 
   @override
   List<Object?> get props => [
     url,
-    filePath,
     title,
-    album,
     artist,
-    genre,
     artUri,
-    httpHeaders,
+    estimatedDuration,
+    headers,
   ];
 
-  /// Serialises this source to a plain `Map<String, Object?>` suitable for
-  /// `JsonCodec.encode`. The `type` discriminator is the extension point for
-  /// future sealed subtypes (Faz S): existing readers should accept any
-  /// known type and reject unknown ones at the caller's boundary.
-  ///
-  /// Rule: `type == 'remote'` when [url] is non-null; otherwise `'file'`.
-  /// If both fields are null we still emit `'file'` so a downstream
-  /// `_toMedia` call surfaces the existing [InvalidMediaSourceFailure] at
-  /// play time rather than silently dropping the source here.
-  Map<String, Object?> toJson() {
-    return <String, Object?>{
-      kCorePlayerAudioSourceTypeKey: url != null ? 'remote' : 'file',
-      'url': url,
-      'filePath': filePath,
-      'title': title,
-      'album': album,
-      'artist': artist,
-      'genre': genre,
-      'artUri': artUri?.toString(),
-      // Coerce to a fresh map so callers cannot mutate our internal state
-      // through the returned Map view.
-      'httpHeaders': httpHeaders == null ? null : Map<String, String>.from(httpHeaders!),
-    };
-  }
+  @override
+  Map<String, Object?> toJson() => <String, Object?>{
+    kCoreAudioSourceTypeKey: 'http',
+    'url': url.toString(),
+    'title': title,
+    if (artist != null) 'artist': artist,
+    if (artUri != null) 'artUri': artUri!.toString(),
+    if (estimatedDuration != null)
+      'estimatedMs': estimatedDuration!.inMilliseconds,
+    // Coerce to a fresh map so callers cannot mutate our internal state
+    // through the returned Map view.
+    if (headers != null && headers!.isNotEmpty)
+      'headers': Map<String, String>.from(headers!),
+  };
 
-  /// Rehydrates a source previously produced by [toJson]. Tolerant of
-  /// nullable fields; throws [FormatException] when [title] is missing
-  /// (the only required field).
-  ///
-  /// Unknown `type` discriminator values throw — Faz S adds new types via
-  /// new factories; missing knowledge here means we don't understand the
-  /// snapshot and should fail loudly rather than silently materialise an
-  /// unplayable source.
-  factory CorePlayerAudioSource.fromJson(Map<String, Object?> json) {
-    final type = json[kCorePlayerAudioSourceTypeKey];
-    if (type != null && type != 'remote' && type != 'file') {
-      throw FormatException('Unknown audio-source type: $type');
+  factory HttpAudioSource.fromJson(Map<String, Object?> json) {
+    final url = json['url'];
+    if (url is! String) {
+      throw const SnapshotMalformedFailure('HttpAudioSource missing "url"');
     }
     final title = json['title'];
     if (title is! String) {
-      throw const FormatException('Audio source JSON missing required "title"');
+      throw const SnapshotMalformedFailure('HttpAudioSource missing "title"');
     }
-    final headers = json['httpHeaders'];
+    final artUriRaw = json['artUri'];
+    final estimatedMs = json['estimatedMs'];
+    final headersRaw = json['headers'];
     Map<String, String>? typedHeaders;
-    if (headers is Map) {
-      typedHeaders = headers.map((k, v) => MapEntry(k.toString(), v.toString()));
+    if (headersRaw is Map) {
+      typedHeaders = headersRaw.map(
+        (k, v) => MapEntry(k.toString(), v.toString()),
+      );
     }
-    final artUri = json['artUri'];
-    return CorePlayerAudioSource(
+    return HttpAudioSource(
+      url: Uri.parse(url),
       title: title,
-      url: json['url'] as String?,
-      filePath: json['filePath'] as String?,
-      album: json['album'] as String?,
       artist: json['artist'] as String?,
-      genre: json['genre'] as String?,
-      artUri: artUri is String ? Uri.parse(artUri) : null,
-      httpHeaders: typedHeaders,
+      artUri: artUriRaw is String ? Uri.parse(artUriRaw) : null,
+      estimatedDuration:
+          estimatedMs is int ? Duration(milliseconds: estimatedMs) : null,
+      headers: typedHeaders,
+    );
+  }
+}
+
+/// Local filesystem source. `path` is the absolute or relative filesystem
+/// path the engine hands to its native open call.
+///
+/// The class deliberately does NOT depend on `dart:io` — the abstraction
+/// stays import-safe from web builds; the engine layer is the one that
+/// translates [path] into a `File` (or refuses, on web).
+final class FileAudioSource extends CoreAudioSource {
+  const FileAudioSource({
+    required this.path,
+    required super.title,
+    super.artist,
+    super.artUri,
+    super.estimatedDuration,
+  });
+
+  final String path;
+
+  @override
+  List<Object?> get props => [path, title, artist, artUri, estimatedDuration];
+
+  @override
+  Map<String, Object?> toJson() => <String, Object?>{
+    kCoreAudioSourceTypeKey: 'file',
+    'path': path,
+    'title': title,
+    if (artist != null) 'artist': artist,
+    if (artUri != null) 'artUri': artUri!.toString(),
+    if (estimatedDuration != null)
+      'estimatedMs': estimatedDuration!.inMilliseconds,
+  };
+
+  factory FileAudioSource.fromJson(Map<String, Object?> json) {
+    final path = json['path'];
+    if (path is! String) {
+      throw const SnapshotMalformedFailure('FileAudioSource missing "path"');
+    }
+    final title = json['title'];
+    if (title is! String) {
+      throw const SnapshotMalformedFailure('FileAudioSource missing "title"');
+    }
+    final artUriRaw = json['artUri'];
+    final estimatedMs = json['estimatedMs'];
+    return FileAudioSource(
+      path: path,
+      title: title,
+      artist: json['artist'] as String?,
+      artUri: artUriRaw is String ? Uri.parse(artUriRaw) : null,
+      estimatedDuration:
+          estimatedMs is int ? Duration(milliseconds: estimatedMs) : null,
     );
   }
 }

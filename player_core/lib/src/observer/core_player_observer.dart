@@ -11,7 +11,7 @@ abstract class CorePlayerObserver {
   const CorePlayerObserver();
 
   void onCreate(CorePlayer player) {}
-  void onLoad(CorePlayer player, CorePlayerAudioSource source) {}
+  void onLoad(CorePlayer player, CoreAudioSource source) {}
   void onPlay(CorePlayer player) {}
   void onPause(CorePlayer player) {}
   void onStop(CorePlayer player) {}

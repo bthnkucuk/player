@@ -21,14 +21,20 @@ final class PlayerDisposedFailure extends CorePlayerFailure {
   const PlayerDisposedFailure() : super('Player disposed');
 }
 
-/// Thrown by [CorePlayer.play] when no [CorePlayerAudioSource] has been
+/// Thrown by [CorePlayer.play] when no [CoreAudioSource] has been
 /// supplied to the constructor or to [CorePlayer.load].
 final class MediaItemNotSetFailure extends CorePlayerFailure {
   const MediaItemNotSetFailure() : super('Media item is not set');
 }
 
-/// Thrown by [CorePlayer.load] when the [CorePlayerAudioSource] is malformed
-/// (no url and no filePath).
+/// Thrown by [CorePlayer.load] when the [CoreAudioSource] subtype carries a
+/// payload the engine cannot translate into a native [Media] (e.g. an
+/// empty path or a transport not yet supported by the active engine).
+///
+/// Post-Faz-S1 the sealed hierarchy makes the obvious "neither url nor
+/// path" state unrepresentable at the type system — this failure now
+/// captures the residual runtime malformedness (empty strings, unsupported
+/// transports introduced by future subtypes the engine doesn't know yet).
 final class InvalidMediaSourceFailure extends CorePlayerFailure {
   const InvalidMediaSourceFailure() : super('Media item is invalid');
 }

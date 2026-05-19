@@ -14,12 +14,12 @@ import 'package:player_core/src/queue/core_player_queue.dart';
 /// for the canonical implementation registration.
 typedef CorePlayerFactory =
     CorePlayer Function({
-      CorePlayerAudioSource? audioSource,
+      CoreAudioSource? audioSource,
       CoreAudioHandler? audioHandler,
       bool autoLoad,
     });
 
-// `CorePlayerAudioSource` still uses Equatable below (it's a value type — the
+// `CoreAudioSource` still uses Equatable below (it's a value type — the
 // import stays). `CorePlayer` itself does NOT extend Equatable: instance identity
 // is the only equality that makes sense (concrete impls hold many mutable
 // stream subjects, subscriptions, native player handles).
@@ -47,12 +47,12 @@ enum CorePlayerLoopMode {
 }
 
 abstract class CorePlayer {
-  CorePlayerAudioSource? get audioSource;
+  CoreAudioSource? get audioSource;
 
   /// Stream of the currently-loaded audio source. Emits null when no
   /// source is loaded (initial state, after [setQueue] with an empty
   /// queue, or after [clearQueue]).
-  ValueStream<CorePlayerAudioSource?> get audioSourceStream;
+  ValueStream<CoreAudioSource?> get audioSourceStream;
 
   CoreAudioHandler? get audioHandler;
   bool get autoLoad;
@@ -94,7 +94,7 @@ abstract class CorePlayer {
   /// the impl's `ensureInitialized()` (e.g. `CorePlayerMediaKit.ensureInitialized()`)
   /// before using this.
   static CorePlayer create({
-    CorePlayerAudioSource? audioSource,
+    CoreAudioSource? audioSource,
     CoreAudioHandler? audioHandler,
     bool autoLoad = false,
   }) {
@@ -140,7 +140,7 @@ abstract class CorePlayer {
 
   bool get isDisposed;
 
-  Future<void> load(CorePlayerAudioSource audioSource);
+  Future<void> load(CoreAudioSource audioSource);
 
   /// Current queue. Defaults to [CorePlayerQueue.empty] until [setQueue] or
   /// [load] is called. After [load], it holds a single-item queue wrapping
@@ -165,16 +165,16 @@ abstract class CorePlayer {
   /// Inserts [source] immediately after the active index so it becomes the
   /// next-to-play item. Implemented as an incremental mutation so the
   /// currently-playing track is not re-opened (which would stall mid-track).
-  Future<void> insertNext(CorePlayerAudioSource source);
+  Future<void> insertNext(CoreAudioSource source);
 
   /// Appends [source] to the end of the queue. Preserves playback continuity
   /// — never re-opens the active media.
-  Future<void> appendToQueue(CorePlayerAudioSource source);
+  Future<void> appendToQueue(CoreAudioSource source);
 
   /// Bulk variant of [appendToQueue]. Sources are appended in iteration
   /// order; a partial failure mid-batch leaves the already-appended items
   /// in place (the underlying playlist primitive does not roll back).
-  Future<void> appendAllToQueue(List<CorePlayerAudioSource> sources);
+  Future<void> appendAllToQueue(List<CoreAudioSource> sources);
 
   /// Removes the queue item at [index]. When [index] is the active track
   /// playback advances to the next item (or stops when none remains);
@@ -201,7 +201,7 @@ abstract class CorePlayer {
   /// observable synchronously.
   Future<void> replaceAt(
     int index,
-    CorePlayerAudioSource source, {
+    CoreAudioSource source, {
     bool preservePosition = false,
   });
 
@@ -231,7 +231,7 @@ abstract class CorePlayer {
   /// Apps should prefer this over hand-rolled `await stop(); await load();
   /// await play();` chains, which are vulnerable to re-entrancy when wired to
   /// gesture handlers.
-  Future<void> loadAndPlay(CorePlayerAudioSource audioSource);
+  Future<void> loadAndPlay(CoreAudioSource audioSource);
 
   Future<void> pause();
 
