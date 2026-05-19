@@ -105,10 +105,6 @@ class _QueueMutationDemoState extends State<QueueMutationDemo> {
                   onAppend: () => _safe(() => _player.appendToQueue(_benchTrack)),
                   onRemoveCurrent: () =>
                       _safe(() => _player.removeAt(queue.currentIndex)),
-                  onMoveTwoToZero: () => _safe(() {
-                    if (queue.length < 3) return Future<void>.value();
-                    return _player.moveItem(2, 0);
-                  }),
                   onReplaceCurrentPreserve: () => _safe(
                     () => _player.replaceAt(
                       queue.currentIndex,
@@ -121,7 +117,12 @@ class _QueueMutationDemoState extends State<QueueMutationDemo> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _QueueView(queue: queue, player: _player),
+                _QueueView(
+                  queue: queue,
+                  player: _player,
+                  onReorder: (int from, int to) =>
+                      _safe(() => _player.moveItem(from, to)),
+                ),
                 const SizedBox(height: 12),
                 if (_lastError != null)
                   Padding(
@@ -193,8 +194,12 @@ class _ExpectedCard extends StatelessWidget {
               '  playing without a pause/restart.\n'
               '- "Remove current" -> playback advances to the next\n'
               '  track immediately, no audible gap.\n'
-              '- "Move 2 -> 0" -> reorder the queue; position bar\n'
-              '  does not reset.\n'
+              '- Drag-to-reorder -> grab the drag handle on the\n'
+              '  right of any row and drag up/down. The row\n'
+              '  visibly moves; queue order updates immediately.\n'
+              '  Playback continues from the same position without\n'
+              '  a pause/restart. If a non-active item is\n'
+              '  reordered, the active item stays active.\n'
               '- "Replace current (preserve)" -> the new audio\n'
               '  starts at the same time-offset as where the old\n'
               '  one was (within ~200 ms).\n'
@@ -306,7 +311,6 @@ class _MutationControls extends StatelessWidget {
     required this.onInsertNext,
     required this.onAppend,
     required this.onRemoveCurrent,
-    required this.onMoveTwoToZero,
     required this.onReplaceCurrentPreserve,
     required this.onReplaceCurrentReset,
   });
@@ -317,7 +321,6 @@ class _MutationControls extends StatelessWidget {
   final VoidCallback onInsertNext;
   final VoidCallback onAppend;
   final VoidCallback onRemoveCurrent;
-  final VoidCallback onMoveTwoToZero;
   final VoidCallback onReplaceCurrentPreserve;
   final VoidCallback onReplaceCurrentReset;
 
@@ -344,11 +347,6 @@ class _MutationControls extends StatelessWidget {
           label: const Text('Remove current'),
         ),
         OutlinedButton.icon(
-          onPressed: (enabled && queue.length >= 3) ? onMoveTwoToZero : null,
-          icon: const Icon(Icons.swap_horiz),
-          label: const Text('Move 2 -> 0'),
-        ),
-        OutlinedButton.icon(
           onPressed: enabled ? onReplaceCurrentPreserve : null,
           icon: const Icon(Icons.find_replace),
           label: const Text('Replace current (preserve)'),
@@ -364,10 +362,20 @@ class _MutationControls extends StatelessWidget {
 }
 
 class _QueueView extends StatelessWidget {
-  const _QueueView({required this.queue, required this.player});
+  const _QueueView({
+    required this.queue,
+    required this.player,
+    required this.onReorder,
+  });
 
   final CorePlayerQueue queue;
   final CorePlayer player;
+
+  /// Caller-supplied reorder handler. Receives `(from, to)` already adjusted
+  /// for Flutter's `ReorderableListView.onReorder` quirk (see below): when a
+  /// row is dragged DOWN, Flutter passes `newIndex` computed against the
+  /// list BEFORE removal, so it is one larger than the final landing slot.
+  final Future<void> Function(int from, int to) onReorder;
 
   @override
   Widget build(BuildContext context) {
@@ -379,12 +387,27 @@ class _QueueView extends StatelessWidget {
       child: Card(
         child: queue.isEmpty
             ? const Center(child: Text('Queue is empty'))
-            : ListView.builder(
+            : ReorderableListView.builder(
+                buildDefaultDragHandles: false,
                 itemCount: queue.length,
+                onReorder: (int oldIndex, int newIndex) {
+                  // Flutter's quirk: when dragging DOWN, `newIndex` is one
+                  // larger than the destination slot because it is computed
+                  // against the pre-removal list. Adjust before delegating
+                  // to `CorePlayer.moveItem`.
+                  final int adjusted = newIndex > oldIndex ? newIndex - 1 : newIndex;
+                  if (adjusted == oldIndex) return;
+                  // Fire-and-forget: the queueStream rebuild will reflect
+                  // the new order; errors are surfaced via errorStream.
+                  unawaited(onReorder(oldIndex, adjusted));
+                },
                 itemBuilder: (context, i) {
                   final source = queue.sources[i];
                   final isActive = i == queue.currentIndex;
                   return ListTile(
+                    key: ValueKey<String>(
+                      'queue-row-${source.url ?? source.filePath ?? source.title}',
+                    ),
                     leading: CircleAvatar(child: Text('$i')),
                     title: Text(
                       source.title,
@@ -393,9 +416,16 @@ class _QueueView extends StatelessWidget {
                       ),
                     ),
                     subtitle: Text(source.artist ?? source.url ?? ''),
-                    trailing: isActive
-                        ? const Icon(Icons.graphic_eq, color: Colors.green)
-                        : IconButton(
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        if (isActive)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 4),
+                            child: Icon(Icons.graphic_eq, color: Colors.green),
+                          )
+                        else
+                          IconButton(
                             icon: const Icon(Icons.play_arrow),
                             onPressed: () async {
                               try {
@@ -405,6 +435,15 @@ class _QueueView extends StatelessWidget {
                               }
                             },
                           ),
+                        ReorderableDragStartListener(
+                          index: i,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(Icons.drag_handle),
+                          ),
+                        ),
+                      ],
+                    ),
                   );
                 },
               ),
