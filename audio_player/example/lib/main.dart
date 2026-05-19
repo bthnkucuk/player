@@ -8,6 +8,7 @@ import 'demos/raw_media_kit.dart';
 import 'demos/multi_scope.dart';
 import 'demos/observer.dart';
 import 'demos/playlist.dart';
+import 'demos/queue_mutation.dart';
 import 'demos/single_track.dart';
 
 /// App-wide Talker instance. Wired to [CorePlayerConfiguration.logCallback]
@@ -94,6 +95,12 @@ class HomePage extends StatelessWidget {
       builder: _buildPlaylist,
     ),
     _Demo(
+      title: 'Queue mutation',
+      subtitle: 'insertNext / appendToQueue / removeAt / moveItem / replaceAt',
+      icon: Icons.playlist_play,
+      builder: _buildQueueMutation,
+    ),
+    _Demo(
       title: 'Multi-scope',
       subtitle: 'two parallel audio scopes; transfer OS focus',
       icon: Icons.layers,
@@ -122,6 +129,7 @@ class HomePage extends StatelessWidget {
 
   static Widget _buildSingleTrack(BuildContext _) => const SingleTrackDemo();
   static Widget _buildPlaylist(BuildContext _) => const PlaylistDemo();
+  static Widget _buildQueueMutation(BuildContext _) => const QueueMutationDemo();
   static Widget _buildMultiScope(BuildContext _) => const MultiScopeDemo();
   static Widget _buildObserver(BuildContext _) => const ObserverDemo();
   static Widget _buildDebugLogs(BuildContext _) => const DebugLogsDemo();
