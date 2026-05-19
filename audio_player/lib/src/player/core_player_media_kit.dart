@@ -1030,53 +1030,6 @@ class CorePlayerMediaKit extends CorePlayer
   }
 
   @override
-  Future<void> play({Duration? position}) async {
-    if (_audioSource == null) {
-      _throwAndEmit(const MediaItemNotSetFailure());
-    }
-
-    if (_disposed) {
-      _throwAndEmit(const PlayerDisposedFailure());
-    }
-
-    if (needToLoad) {
-      await load(_audioSource!);
-    }
-
-    if (audioHandler != null) {
-      try {
-        // Attach to OUR scope, not the default scope. `currentAudioHandler`
-        // below additionally gates on `isActiveScope` so non-active scopes
-        // don't push their MediaItem to the lock-screen.
-        final isAttached = await audioHandler!.attach(this);
-        // Request OS audio focus BEFORE emitting the MediaItem. On Android
-        // 8+ the foreground service must be live for audio_service to
-        // bridge MediaItem writes into the platform MediaSession — emitting
-        // first leaves the bridged value to be silently dropped on some
-        // Android versions, so the OS lock-screen / Now Playing surface
-        // never switches off whichever app last claimed it (e.g. YouTube).
-        // requestActiveSession is also where iOS's AVAudioSession is set
-        // active; MPNowPlayingInfoCenter writes after that point land.
-        // Idempotent via the bridge's _hasUserActivatedSession gate, so it
-        // doesn't pause other apps' audio on repeated play() calls.
-        await audioHandler!.requestActiveSession();
-        if (isAttached) {
-          currentAudioHandler?.emitMediaItem(_toMediaItem(_audioSource!));
-        }
-      } on Object catch (e) {
-        _throwAndEmit(PlayFailure('Failed to attach player: $e', cause: e));
-      }
-    }
-
-    if (position != null) {
-      await runOnNative(() => player.seek(position));
-    }
-
-    await runOnNative(() => player.play());
-    CorePlayer.observer?.onPlay(this);
-  }
-
-  @override
   Future<void> loadAndPlay(CorePlayerAudioSource audioSource) {
     if (_disposed) {
       // Match other ops: throw the typed failure rather than returning a
