@@ -122,20 +122,6 @@ class _RawMediaKitDemoState extends State<RawMediaKitDemo> {
     if (mounted) setState(() => _tuningStatus = 'ready');
   }
 
-  Future<void> _set(NativePlayer np, String name, String value) async {
-    // dynamic cast: NativePlayer on web is a stub without setProperty/getProperty;
-    // this whole demo is libmpv-only and is not navigable on web, but the file
-    // must still compile for the web target.
-    final dynamic d = np;
-    try {
-      await d.setProperty(name, value);
-      final readback = await d.getProperty(name);
-      _log('setProperty $name=$value (readback="$readback")');
-    } on Object catch (e) {
-      _log('setProperty FAILED $name=$value: $e');
-    }
-  }
-
   @override
   void dispose() {
     unawaited(_bufferingSub?.cancel());
