@@ -4,6 +4,7 @@ import 'package:player_core/player_core.dart';
 import 'package:audio_player/audio_player.dart';
 
 import 'demos/auto_radio_and_position_stream.dart';
+import 'demos/capabilities.dart';
 import 'demos/debug_logs.dart';
 import 'demos/raw_media_kit.dart';
 import 'demos/multi_scope.dart';
@@ -140,6 +141,13 @@ class HomePage extends StatelessWidget {
       icon: Icons.radio,
       builder: _buildAutoRadio,
     ),
+    _Demo(
+      title: 'Player capabilities',
+      subtitle:
+          'feature-gate UI via player.capabilities instead of engine sniffing',
+      icon: Icons.checklist,
+      builder: _buildCapabilities,
+    ),
   ];
 
   static Widget _buildSingleTrack(BuildContext _) => const SingleTrackDemo();
@@ -153,6 +161,7 @@ class HomePage extends StatelessWidget {
       const ResumeFromColdStartDemo();
   static Widget _buildAutoRadio(BuildContext _) =>
       const AutoRadioAndPositionStreamDemo();
+  static Widget _buildCapabilities(BuildContext _) => const CapabilitiesDemo();
 
   @override
   Widget build(BuildContext context) {
