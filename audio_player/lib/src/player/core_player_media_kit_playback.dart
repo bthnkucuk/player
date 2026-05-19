@@ -25,4 +25,18 @@ mixin CorePlayerMediaKitPlayback on CorePlayer, CorePlayerMediaKitConcurrency {
     await runOnNative(() => player.setVolume(clamped * 100)); // media_kit uses 0-100 scale
     _volumeSubject.add(clamped);
   }
+
+  @override
+  Future<void> setPlaybackSpeed(double speed) async {
+    if (_disposed) {
+      _throwAndEmit(const PlayerDisposedFailure());
+    }
+    try {
+      await runOnNative(() => player.setRate(speed));
+    } catch (e) {
+      _throwAndEmit(PlaybackSpeedFailure('Failed to set speed $speed', cause: e));
+    }
+    // stream.rate often does not emit on programmatic setRate; keep UI in sync.
+    _rateSubject.add(player.state.rate);
+  }
 }

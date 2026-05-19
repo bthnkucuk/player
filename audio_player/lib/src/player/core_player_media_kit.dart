@@ -585,20 +585,6 @@ class CorePlayerMediaKit extends CorePlayer
     _loopModeSubject.add(mode);
   }
 
-  @override
-  Future<void> setPlaybackSpeed(double speed) async {
-    if (_disposed) {
-      _throwAndEmit(const PlayerDisposedFailure());
-    }
-    try {
-      await runOnNative(() => player.setRate(speed));
-    } catch (e) {
-      _throwAndEmit(PlaybackSpeedFailure('Failed to set speed $speed', cause: e));
-    }
-    // stream.rate often does not emit on programmatic setRate; keep UI in sync.
-    _rateSubject.add(player.state.rate);
-  }
-
   void _updatePlayerState(CorePlayerState state) {
     final previous = _playerStateSubject.value;
     _playerStateSubject.add(state);
