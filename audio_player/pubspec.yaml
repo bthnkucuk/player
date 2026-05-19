@@ -29,6 +29,7 @@ dependencies:
   meta: any
   equatable: ^2.0.8
   path_provider: ^2.1.5
+  synchronized: ^3.4.0
 
 dev_dependencies:
   alchemist: ^0.14.0
