@@ -10,14 +10,14 @@ mixin CorePlayerMediaKitPlayback on CorePlayer, CorePlayerMediaKitConcurrency {
   // visibility or moving any state.
   Player get player;
   bool get _disposed;
-  CorePlayerAudioSource? get _audioSource;
+  CoreAudioSource? get _audioSource;
   bool get needToLoad;
   set needToLoad(bool value);
   CoreAudioHandler? get currentAudioHandler;
   BehaviorSubject<double> get _rateSubject;
   BehaviorSubject<double> get _volumeSubject;
   Never _throwAndEmit(CorePlayerFailure failure);
-  MediaItem _toMediaItem(CorePlayerAudioSource audioSource);
+  MediaItem _toMediaItem(CoreAudioSource audioSource);
 
   @override
   Future<void> setVolume(double volume) async {

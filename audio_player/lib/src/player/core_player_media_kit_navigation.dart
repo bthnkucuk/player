@@ -11,7 +11,7 @@ mixin CorePlayerMediaKitNavigation on CorePlayer
   BehaviorSubject<CorePlayerQueue> get _queueStreamBacking;
   BehaviorSubject<CorePlayerLoopMode> get _loopModeSubject;
   BehaviorSubject<bool> get _shuffleSubject;
-  List<CorePlayerAudioSource> get _sources;
+  List<CoreAudioSource> get _sources;
   Never _throwAndEmit(CorePlayerFailure failure);
 
   @override

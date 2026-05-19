@@ -55,7 +55,7 @@ extension _CorePlayerMediaKitAutoRadio on CorePlayerMediaKit {
   /// `completed` listener stays non-async — broadcast listener callbacks
   /// can swallow uncaught errors silently.
   Future<void> _runQueueExhausted(CorePlayerOnQueueExhausted cb) async {
-    List<CorePlayerAudioSource>? appended;
+    List<CoreAudioSource>? appended;
     try {
       appended = await cb();
     } on Object catch (e, s) {
@@ -81,7 +81,7 @@ extension _CorePlayerMediaKitAutoRadio on CorePlayerMediaKit {
   /// Holds [queueLock] for the whole operation so a concurrent [setQueue]
   /// does not interleave with the auto-radio append, and the post-append
   /// `jump` + `play` happen against the freshly-extended queue.
-  Future<void> _appendForAutoRadio(List<CorePlayerAudioSource> sources) {
+  Future<void> _appendForAutoRadio(List<CoreAudioSource> sources) {
     return runOnQueue(() async {
       if (_disposed) return;
       if (_sources.isEmpty) return;

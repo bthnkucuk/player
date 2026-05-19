@@ -23,7 +23,7 @@ int _clampQueueIndex(int index, int length) {
 /// post-move layout, otherwise the derived [CorePlayerQueue] indexes
 /// against a stale source list (and the active-source projection lags by
 /// one platform emission).
-void _moveInPlace(List<CorePlayerAudioSource> list, int from, int to) {
+void _moveInPlace(List<CoreAudioSource> list, int from, int to) {
   if (from == to) return;
   final item = list.removeAt(from);
   list.insert(to, item);

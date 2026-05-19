@@ -14,11 +14,11 @@ mixin CorePlayerMediaKitMutation on CorePlayer {
   // `on CorePlayer` constraint.
   Player get player;
   bool get _disposed;
-  List<CorePlayerAudioSource> get _sources;
+  List<CoreAudioSource> get _sources;
   BehaviorSubject<CorePlayerQueue> get _queueStreamBacking;
 
   Never _throwAndEmit(CorePlayerFailure failure);
-  Media _toMedia(CorePlayerAudioSource src);
+  Media _toMedia(CoreAudioSource src);
   Future<void> _setQueueLocked(CorePlayerQueue queue, int token);
   int nextSetQueueToken();
   Future<T> runOnNative<T>(Future<T> Function() action);
@@ -49,14 +49,14 @@ mixin CorePlayerMediaKitMutation on CorePlayer {
   }
 
   @override
-  Future<void> insertNext(CorePlayerAudioSource source) async {
+  Future<void> insertNext(CoreAudioSource source) async {
     if (_disposed) {
       _throwAndEmit(const PlayerDisposedFailure());
     }
     return runOnQueue(() => _insertNextLocked(source));
   }
 
-  Future<void> _insertNextLocked(CorePlayerAudioSource source) async {
+  Future<void> _insertNextLocked(CoreAudioSource source) async {
     if (_disposed) return;
     if (_sources.isEmpty) {
       // No active queue → degenerate to a single-item set. setQueue acquires
@@ -91,14 +91,14 @@ mixin CorePlayerMediaKitMutation on CorePlayer {
   }
 
   @override
-  Future<void> appendToQueue(CorePlayerAudioSource source) async {
+  Future<void> appendToQueue(CoreAudioSource source) async {
     if (_disposed) {
       _throwAndEmit(const PlayerDisposedFailure());
     }
     return runOnQueue(() => _appendOneLocked(source));
   }
 
-  Future<void> _appendOneLocked(CorePlayerAudioSource source) async {
+  Future<void> _appendOneLocked(CoreAudioSource source) async {
     if (_disposed) return;
     if (_sources.isEmpty) {
       await _setQueueLocked(
@@ -140,7 +140,7 @@ mixin CorePlayerMediaKitMutation on CorePlayer {
   @override
   Future<void> replaceAt(
     int index,
-    CorePlayerAudioSource source, {
+    CoreAudioSource source, {
     bool preservePosition = false,
   }) async {
     if (_disposed) {
@@ -164,7 +164,7 @@ mixin CorePlayerMediaKitMutation on CorePlayer {
 
   Future<void> _replaceAtLocked(
     int index,
-    CorePlayerAudioSource source, {
+    CoreAudioSource source, {
     required bool preservePosition,
   }) async {
     if (_disposed) return;
@@ -217,7 +217,7 @@ mixin CorePlayerMediaKitMutation on CorePlayer {
   }
 
   @override
-  Future<void> appendAllToQueue(List<CorePlayerAudioSource> sources) async {
+  Future<void> appendAllToQueue(List<CoreAudioSource> sources) async {
     if (_disposed) {
       _throwAndEmit(const PlayerDisposedFailure());
     }
@@ -225,7 +225,7 @@ mixin CorePlayerMediaKitMutation on CorePlayer {
     return runOnQueue(() => _appendAllLocked(sources));
   }
 
-  Future<void> _appendAllLocked(List<CorePlayerAudioSource> sources) async {
+  Future<void> _appendAllLocked(List<CoreAudioSource> sources) async {
     if (_disposed) return;
     // Empty-queue fast path: bootstrap with setQueue so the playlist stream
     // wiring + audioSource projection take the same code path as a fresh

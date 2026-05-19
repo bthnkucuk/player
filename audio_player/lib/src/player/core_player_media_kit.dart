@@ -125,25 +125,25 @@ class CorePlayerMediaKit extends CorePlayer
   }
 
   @override
-  CorePlayerAudioSource? _audioSource;
+  CoreAudioSource? _audioSource;
   @override
-  CorePlayerAudioSource? get audioSource => _audioSource;
+  CoreAudioSource? get audioSource => _audioSource;
 
   /// Mutate [_audioSource] and broadcast on [audioSourceStream]. All
   /// assignments to [_audioSource] route through this helper so the
   /// subject and the field cannot drift.
-  void _setAudioSource(CorePlayerAudioSource? source) {
+  void _setAudioSource(CoreAudioSource? source) {
     _audioSource = source;
     if (!_audioSourceSubject.isClosed) {
       _audioSourceSubject.add(source);
     }
   }
 
-  late final BehaviorSubject<CorePlayerAudioSource?> _audioSourceSubject =
-      BehaviorSubject<CorePlayerAudioSource?>.seeded(_audioSource);
+  late final BehaviorSubject<CoreAudioSource?> _audioSourceSubject =
+      BehaviorSubject<CoreAudioSource?>.seeded(_audioSource);
 
   @override
-  late final ValueStream<CorePlayerAudioSource?> audioSourceStream =
+  late final ValueStream<CoreAudioSource?> audioSourceStream =
       _audioSourceSubject.stream;
 
   @override
@@ -163,7 +163,7 @@ class CorePlayerMediaKit extends CorePlayer
   @internal
   @override
   CorePlayerMediaKit({
-    CorePlayerAudioSource? audioSource,
+    CoreAudioSource? audioSource,
     this.audioHandler,
     bool autoLoad = false,
     @visibleForTesting Player? testPlayer,
@@ -538,13 +538,13 @@ class CorePlayerMediaKit extends CorePlayer
   final BehaviorSubject<CorePlayerQueue> _queueStreamBacking =
       BehaviorSubject<CorePlayerQueue>.seeded(const CorePlayerQueue.empty());
 
-  /// Parallel list of [CorePlayerAudioSource] matching the [Media] list in
+  /// Parallel list of [CoreAudioSource] matching the [Media] list in
   /// media_kit's current [Playlist]. Indexed by position. Used to round-
   /// trip from a media_kit [Playlist] back to a typed [CorePlayerQueue].
   /// Only mutated inside [setQueue] BEFORE `player.open(...)` is awaited;
   /// every queue change is then observed via the playlist subscription.
   @override
-  List<CorePlayerAudioSource> _sources = const [];
+  List<CoreAudioSource> _sources = const [];
 
   @override
   final BehaviorSubject<bool> _shuffleSubject = BehaviorSubject<bool>.seeded(
@@ -651,27 +651,28 @@ class CorePlayerMediaKit extends CorePlayer
   bool needToLoad = true;
 
   @override
-  Future<void> load(CorePlayerAudioSource audioSource) {
+  Future<void> load(CoreAudioSource audioSource) {
     // Backward-compat: a single-source load is a single-item queue.
     // `setQueue` hands media_kit's native [Playlist] primitive directly
     // to the player, preserving the single-track contract end-to-end.
     return setQueue(CorePlayerQueue.single(audioSource));
   }
 
-  /// Maps a [CorePlayerAudioSource] into a media_kit [Media]. Network sources
-  /// carry their [CorePlayerAudioSource.httpHeaders]; local file sources use
-  /// the bare path. Throws [InvalidMediaSourceFailure] when neither field is
-  /// set.
+  /// Maps a [CoreAudioSource] into a media_kit [Media]. HTTP sources forward
+  /// their [HttpAudioSource.headers] verbatim; file sources hand the bare
+  /// [FileAudioSource.path] to media_kit's resolver.
+  ///
+  /// The switch is exhaustive on the sealed [CoreAudioSource] hierarchy; Faz
+  /// S2 ([HlsAudioSource]) and Faz S3 ([LiveAudioSource]) MUST extend it.
+  /// [InvalidMediaSourceFailure] is reserved for residual runtime
+  /// malformedness (e.g. empty path / unsupported transports) — the sealed
+  /// type itself prevents the obvious "neither url nor path" state.
   @override
-  Media _toMedia(CorePlayerAudioSource src) {
-    if (src.url != null) {
-      return Media(src.url!, httpHeaders: src.httpHeaders);
-    } else if (src.filePath != null) {
-      return Media(src.filePath!);
-    } else {
-      _throwAndEmit(const InvalidMediaSourceFailure());
-    }
-  }
+  Media _toMedia(CoreAudioSource src) => switch (src) {
+    HttpAudioSource(:final url, :final headers) =>
+        Media(url.toString(), httpHeaders: headers),
+    FileAudioSource(:final path) => Media(path),
+  };
 
   @override
   CorePlayerQueue get queue => _queueStreamBacking.value;
@@ -709,7 +710,7 @@ class CorePlayerMediaKit extends CorePlayer
     // Growable: queue-mutation API (insertNext / appendToQueue /
     // removeAt / moveItem / replaceAt) mutates this list in place to
     // keep wrapper state aligned with each incremental playlist emission.
-    _sources = List<CorePlayerAudioSource>.of(queue.sources, growable: true);
+    _sources = List<CoreAudioSource>.of(queue.sources, growable: true);
 
     if (queue.isEmpty) {
       _setAudioSource(null);
@@ -785,7 +786,7 @@ class CorePlayerMediaKit extends CorePlayer
   }
 
   @override
-  Future<void> loadAndPlay(CorePlayerAudioSource audioSource) {
+  Future<void> loadAndPlay(CoreAudioSource audioSource) {
     if (_disposed) {
       // Match other ops: throw the typed failure rather than returning a
       // rejected Future via async syntax (the abstract method signature is
@@ -796,7 +797,7 @@ class CorePlayerMediaKit extends CorePlayer
   }
 
   Future<void> _doLoadAndPlay(
-    CorePlayerAudioSource audioSource,
+    CoreAudioSource audioSource,
     int token,
   ) async {
     if (_disposed) return;
@@ -933,15 +934,28 @@ class CorePlayerMediaKit extends CorePlayer
   ///
 
   @override
-  MediaItem _toMediaItem(CorePlayerAudioSource audioSource) {
+  MediaItem _toMediaItem(CoreAudioSource audioSource) {
+    // `id` is required by audio_service to identify the MediaItem on the
+    // lock-screen; map per subtype rather than reaching into nullable
+    // fields. The engine's preferred duration is the real one from
+    // `player.state.duration`; fall back to the source's
+    // [CoreAudioSource.estimatedDuration] hint so the lock-screen has a
+    // value before the demuxer reports back (then the playbackState
+    // pipeline overwrites with the real one on the next emit).
+    final id = switch (audioSource) {
+      HttpAudioSource(:final url) => url.toString(),
+      FileAudioSource(:final path) => path,
+    };
+    final engineDuration = player.state.duration;
+    final duration = engineDuration > Duration.zero
+        ? engineDuration
+        : audioSource.estimatedDuration ?? Duration.zero;
     return MediaItem(
-      id: audioSource.url ?? audioSource.filePath ?? '',
+      id: id,
       title: audioSource.title,
-      album: audioSource.album,
       artist: audioSource.artist,
-      genre: audioSource.genre,
       artUri: audioSource.artUri,
-      duration: player.state.duration,
+      duration: duration,
     );
   }
 
@@ -950,7 +964,7 @@ class CorePlayerMediaKit extends CorePlayer
   /// current media to the lock-screen on a scope focus transfer. Not for
   /// app code.
   @internal
-  MediaItem toMediaItemForBridge(CorePlayerAudioSource audioSource) =>
+  MediaItem toMediaItemForBridge(CoreAudioSource audioSource) =>
       _toMediaItem(audioSource);
 
   AudioProcessingState _toProcessingState(CorePlayerState state) {
