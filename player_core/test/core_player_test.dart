@@ -20,6 +20,9 @@ class _FakeTuPlayer extends CorePlayer {
   bool get autoLoad => false;
 
   @override
+  CorePlayerCapabilities get capabilities => const CorePlayerCapabilities();
+
+  @override
   bool get isDisposed => false;
 
   @override

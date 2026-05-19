@@ -6,6 +6,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:player_core/src/failures/core_player_failure.dart';
 import 'package:player_core/src/observer/core_player_observer.dart';
 import 'package:player_core/src/player/core_audio_handler.dart';
+import 'package:player_core/src/player/core_player_capabilities.dart';
 import 'package:player_core/src/queue/core_player_queue.dart';
 
 /// Factory used by [CorePlayer.create]. Implementations register one via
@@ -56,6 +57,10 @@ abstract class CorePlayer {
 
   CoreAudioHandler? get audioHandler;
   bool get autoLoad;
+
+  /// Capabilities of the underlying engine for this player. Stable across
+  /// the player's lifetime — safe to read once at construction and cache.
+  CorePlayerCapabilities get capabilities;
 
   /// Abstract constructor — subclasses define their own concrete constructor
   /// and back the [audioSource], [audioHandler], [autoLoad] getters with
