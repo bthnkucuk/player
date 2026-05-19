@@ -10,8 +10,8 @@ import 'helpers/test_mocks.dart';
 
 /// Faz H — Hardening: lifecycle / dispose tests for CorePlayerMediaKit.
 ///
-/// Targets the leak_tracker failure classes documented in the production
-/// tuSpeech outages:
+/// Targets the leak_tracker failure classes documented in prior production
+/// outages:
 ///
 ///   1. Constructor fire-and-forget Futures landing on a disposed player
 ///      (setProperty / attach after dispose).
