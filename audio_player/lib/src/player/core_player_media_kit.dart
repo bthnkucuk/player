@@ -995,12 +995,33 @@ class CorePlayerMediaKit extends CorePlayer {
   }
 
   bool _disposed = false;
+  bool _asyncDisposeStarted = false;
   @override
   bool get isDisposed => _disposed;
 
+  /// Synchronous part of dispose. Flips [_disposed] so any in-flight
+  /// constructor continuation (e.g. [_applyLibmpvOptions] mid-
+  /// `getApplicationCacheDirectory`) or system-control event reaction
+  /// observes disposal and bails before touching the player.
+  ///
+  /// Mirrors [CoreMediaKitAudioServiceBridge.disposeSync] for symmetry:
+  /// callers owning a player from `State.dispose` should call this before
+  /// `unawaited(player.dispose())` so lifecycle-reachable references drop
+  /// synchronously, removing the State subtree from leak_tracker's
+  /// not-disposed roots even while the async drain in [dispose] completes.
+  ///
+  /// Idempotent. Does NOT release native resources — [dispose] must still
+  /// run for the full async teardown.
+  void disposeSync() {
+    _disposed = true;
+  }
+
   @override
   Future<void> dispose() async {
-    if (_disposed) return;
+    // Use a separate flag so a disposeSync() caller can still trigger the
+    // async teardown afterwards. _disposed alone would short-circuit here.
+    if (_asyncDisposeStarted) return;
+    _asyncDisposeStarted = true;
     // Set _disposed FIRST (before any await) so every fire-and-forget path
     // observes disposal: _applyLibmpvOptions short-circuits after its awaits,
     // event-handler reactions skip dispatch, and the public mutators throw
