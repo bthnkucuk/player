@@ -18,6 +18,7 @@ part 'core_player_media_kit_auto_radio.dart';
 part 'core_player_media_kit_navigation.dart';
 part 'core_player_media_kit_playback.dart';
 part 'core_player_media_kit_mutation.dart';
+part 'core_player_media_kit_capabilities.dart';
 
 /// Position-restoration SLA for [CorePlayerMediaKit.replaceAt] when
 /// `preservePosition: true` is requested for the active index. Buffer-aware
@@ -152,6 +153,12 @@ class CorePlayerMediaKit extends CorePlayer
   final bool? _autoLoad;
   @override
   bool get autoLoad => _autoLoad ?? false;
+
+  // Returns the cached top-level constant so the getter does not allocate
+  // a fresh [CorePlayerCapabilities] per call — consumers may read this
+  // on every frame from a feature-gated widget.
+  @override
+  CorePlayerCapabilities get capabilities => _kMediaKitCapabilities;
 
   @override
   final Player player;
