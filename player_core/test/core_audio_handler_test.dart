@@ -51,7 +51,7 @@ void main() {
 
       test('should throw when AudioHandler is not initialized', () async {
         CoreAudioHandler.setInitialized(false);
-        final player = MockTuPlayer();
+        final player = MockCorePlayer();
 
         await expectLater(
           CoreAudioHandler.attachPlayer(player),
@@ -62,7 +62,7 @@ void main() {
       test(
         'should add player to attached set and set it as current when called the first time',
         () async {
-          final player = MockTuPlayer();
+          final player = MockCorePlayer();
           when(() => player.isDisposed).thenReturn(false);
 
           final wasNew = await CoreAudioHandler.attachPlayer(player);
@@ -76,7 +76,7 @@ void main() {
       test(
         'should return false when re-attaching the already-current player',
         () async {
-          final player = MockTuPlayer();
+          final player = MockCorePlayer();
           when(() => player.isDisposed).thenReturn(false);
           await CoreAudioHandler.attachPlayer(player);
 
@@ -90,8 +90,8 @@ void main() {
       test(
         'should pause all other non-disposed attached players when a new one becomes current',
         () async {
-          final p1 = MockTuPlayer();
-          final p2 = MockTuPlayer();
+          final p1 = MockCorePlayer();
+          final p2 = MockCorePlayer();
           when(() => p1.isDisposed).thenReturn(false);
           when(() => p2.isDisposed).thenReturn(false);
           when(() => p1.pause()).thenAnswer((_) async {});
@@ -108,8 +108,8 @@ void main() {
       );
 
       test('should not call pause on disposed players', () async {
-        final p1 = MockTuPlayer();
-        final p2 = MockTuPlayer();
+        final p1 = MockCorePlayer();
+        final p2 = MockCorePlayer();
         when(() => p1.isDisposed).thenReturn(true);
         when(() => p2.isDisposed).thenReturn(false);
 
@@ -128,7 +128,7 @@ void main() {
 
       test('should throw when not initialized', () async {
         CoreAudioHandler.setInitialized(false);
-        final player = MockTuPlayer();
+        final player = MockCorePlayer();
 
         await expectLater(
           CoreAudioHandler.detachPlayer(player),
@@ -139,7 +139,7 @@ void main() {
       test(
         'should remove player from attached set and clear current when detaching the current player',
         () async {
-          final player = MockTuPlayer();
+          final player = MockCorePlayer();
           when(() => player.isDisposed).thenReturn(false);
           await CoreAudioHandler.attachPlayer(player);
 
@@ -153,8 +153,8 @@ void main() {
       test(
         'should keep other attached players when detaching a non-current player',
         () async {
-          final p1 = MockTuPlayer();
-          final p2 = MockTuPlayer();
+          final p1 = MockCorePlayer();
+          final p2 = MockCorePlayer();
           when(() => p1.isDisposed).thenReturn(false);
           when(() => p2.isDisposed).thenReturn(false);
           when(() => p1.pause()).thenAnswer((_) async {});
@@ -177,8 +177,8 @@ void main() {
       });
 
       test('should return true only for the current player', () async {
-        final p1 = MockTuPlayer();
-        final p2 = MockTuPlayer();
+        final p1 = MockCorePlayer();
+        final p2 = MockCorePlayer();
         when(() => p1.isDisposed).thenReturn(false);
         when(() => p2.isDisposed).thenReturn(false);
         when(() => p1.pause()).thenAnswer((_) async {});
@@ -191,7 +191,7 @@ void main() {
       });
 
       test('should expose attached players as a list snapshot', () async {
-        final p1 = MockTuPlayer();
+        final p1 = MockCorePlayer();
         when(() => p1.isDisposed).thenReturn(false);
         await CoreAudioHandler.attachPlayer(p1);
 
@@ -286,8 +286,8 @@ void main() {
         'should clear current and attached, emit task-removed, and stop non-disposed players',
         () async {
           final handler = CoreAudioHandler.instance!;
-          final p1 = MockTuPlayer();
-          final p2 = MockTuPlayer();
+          final p1 = MockCorePlayer();
+          final p2 = MockCorePlayer();
           when(() => p1.isDisposed).thenReturn(false);
           when(() => p2.isDisposed).thenReturn(false);
           when(() => p1.pause()).thenAnswer((_) async {});
@@ -333,8 +333,8 @@ void main() {
 
       test('should skip calling stop() on disposed players', () async {
         final handler = CoreAudioHandler.instance!;
-        final live = MockTuPlayer();
-        final dead = MockTuPlayer();
+        final live = MockCorePlayer();
+        final dead = MockCorePlayer();
         when(() => live.isDisposed).thenReturn(false);
         when(() => dead.isDisposed).thenReturn(true);
         when(() => live.pause()).thenAnswer((_) async {});

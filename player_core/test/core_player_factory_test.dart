@@ -20,7 +20,7 @@ void main() {
       late CorePlayer fake;
       CorePlayer.registerFactory(({audioSource, audioHandler, autoLoad = false}) {
         calls++;
-        return fake = _FakeTuPlayer();
+        return fake = _FakeCorePlayer();
       });
 
       expect(CorePlayer.isFactoryRegistered, isTrue);
@@ -30,11 +30,11 @@ void main() {
     });
 
     test('registerFactory twice replaces the previous registration', () {
-      CorePlayer.registerFactory(({audioSource, audioHandler, autoLoad = false}) => _FakeTuPlayer());
+      CorePlayer.registerFactory(({audioSource, audioHandler, autoLoad = false}) => _FakeCorePlayer());
       final first = CorePlayer.create();
 
       late CorePlayer second;
-      CorePlayer.registerFactory(({audioSource, audioHandler, autoLoad = false}) => second = _FakeTuPlayer());
+      CorePlayer.registerFactory(({audioSource, audioHandler, autoLoad = false}) => second = _FakeCorePlayer());
       expect(CorePlayer.create(), same(second));
       expect(CorePlayer.create(), isNot(same(first)));
     });
@@ -47,7 +47,7 @@ void main() {
         capturedSource = audioSource;
         capturedHandler = audioHandler;
         capturedAutoLoad = autoLoad;
-        return _FakeTuPlayer();
+        return _FakeCorePlayer();
       });
 
       final src = HttpAudioSource(title: 'x', url: Uri.parse('https://x'));
@@ -62,7 +62,7 @@ void main() {
 /// Minimal stand-in for [CorePlayer]. Concrete impl required because [CorePlayer]
 /// has a default constructor — `noSuchMethod` covers the rest of the surface
 /// that these factory tests never exercise.
-class _FakeTuPlayer extends CorePlayer {
+class _FakeCorePlayer extends CorePlayer {
   @override
   CoreAudioSource? get audioSource => null;
   @override

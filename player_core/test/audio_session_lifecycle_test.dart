@@ -28,7 +28,7 @@ class _MockBridge extends Mock implements CoreAudioServiceBridge {}
 void main() {
   setUpAll(() {
     enableEquatableStringify();
-    registerTuPlayerTestFallbacks();
+    registerCorePlayerTestFallbacks();
   });
 
   late _MockBridge bridge;
@@ -50,7 +50,7 @@ void main() {
 
   group('K5 audio_session lifecycle — attach no longer activates', () {
     test('first attachPlayer does NOT activate the audio session', () async {
-      final player = MockTuPlayer();
+      final player = MockCorePlayer();
       when(() => player.isDisposed).thenReturn(false);
 
       await CoreAudioHandler.attachPlayer(player);
@@ -61,8 +61,8 @@ void main() {
     test(
       'second attachPlayer (while another is attached) does NOT activate',
       () async {
-        final p1 = MockTuPlayer();
-        final p2 = MockTuPlayer();
+        final p1 = MockCorePlayer();
+        final p2 = MockCorePlayer();
         when(() => p1.isDisposed).thenReturn(false);
         when(() => p2.isDisposed).thenReturn(false);
         when(() => p1.pause()).thenAnswer((_) async {});
@@ -76,7 +76,7 @@ void main() {
     );
 
     test('last detachPlayer deactivates the audio session', () async {
-      final player = MockTuPlayer();
+      final player = MockCorePlayer();
       when(() => player.isDisposed).thenReturn(false);
       await CoreAudioHandler.attachPlayer(player);
 
@@ -90,8 +90,8 @@ void main() {
     test(
       'detachPlayer with other players still attached does NOT deactivate',
       () async {
-        final p1 = MockTuPlayer();
-        final p2 = MockTuPlayer();
+        final p1 = MockCorePlayer();
+        final p2 = MockCorePlayer();
         when(() => p1.isDisposed).thenReturn(false);
         when(() => p2.isDisposed).thenReturn(false);
         when(() => p1.pause()).thenAnswer((_) async {});
@@ -109,7 +109,7 @@ void main() {
 
     test('onTaskRemoved deactivates the audio session', () async {
       final handler = CoreAudioHandler.instance!;
-      final p1 = MockTuPlayer();
+      final p1 = MockCorePlayer();
       when(() => p1.isDisposed).thenReturn(false);
       when(() => p1.pause()).thenAnswer((_) async {});
       when(
@@ -130,7 +130,7 @@ void main() {
       'attach/detach are no-ops on the bridge session calls when no bridge is configured',
       () async {
         CoreAudioHandler.debugSetBridge(null);
-        final player = MockTuPlayer();
+        final player = MockCorePlayer();
         when(() => player.isDisposed).thenReturn(false);
 
         await CoreAudioHandler.attachPlayer(player);
@@ -147,7 +147,7 @@ void main() {
       'requestActiveSession after attach activates the audio session',
       () async {
         final handler = CoreAudioHandler.instance!;
-        final player = MockTuPlayer();
+        final player = MockCorePlayer();
         when(() => player.isDisposed).thenReturn(false);
 
         await handler.attach(player);
@@ -172,7 +172,7 @@ void main() {
       'requestActiveSession on a non-active scope does NOT activate',
       () async {
         final preview = CoreAudioHandler(debugName: 'preview');
-        final player = MockTuPlayer();
+        final player = MockCorePlayer();
         when(() => player.isDisposed).thenReturn(false);
 
         await preview.attach(player);
@@ -186,7 +186,7 @@ void main() {
     test('requestActiveSession with no bridge configured is a no-op', () async {
       CoreAudioHandler.debugSetBridge(null);
       final handler = CoreAudioHandler.instance!;
-      final player = MockTuPlayer();
+      final player = MockCorePlayer();
       when(() => player.isDisposed).thenReturn(false);
 
       await handler.attach(player);
@@ -200,7 +200,7 @@ void main() {
       'requestActiveSession called twice still activates (idempotence is the bridge\'s job)',
       () async {
         final handler = CoreAudioHandler.instance!;
-        final player = MockTuPlayer();
+        final player = MockCorePlayer();
         when(() => player.isDisposed).thenReturn(false);
 
         await handler.attach(player);
@@ -217,8 +217,8 @@ void main() {
       'full attach -> requestActiveSession -> detach cycle: activate=1, deactivate=1',
       () async {
         final handler = CoreAudioHandler.instance!;
-        final p1 = MockTuPlayer();
-        final p2 = MockTuPlayer();
+        final p1 = MockCorePlayer();
+        final p2 = MockCorePlayer();
         when(() => p1.isDisposed).thenReturn(false);
         when(() => p2.isDisposed).thenReturn(false);
         when(() => p1.pause()).thenAnswer((_) async {});

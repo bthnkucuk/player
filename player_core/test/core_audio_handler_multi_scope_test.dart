@@ -32,7 +32,7 @@ class _MockBridge extends Mock implements CoreAudioServiceBridge {
 void main() {
   setUpAll(() {
     enableEquatableStringify();
-    registerTuPlayerTestFallbacks();
+    registerCorePlayerTestFallbacks();
   });
 
   late _MockBridge bridge;
@@ -106,8 +106,8 @@ void main() {
       'attaching a second player to the SAME scope auto-pauses the first',
       () async {
         final scope = CoreAudioHandler.instance!;
-        final p1 = MockTuPlayer();
-        final p2 = MockTuPlayer();
+        final p1 = MockCorePlayer();
+        final p2 = MockCorePlayer();
         when(() => p1.isDisposed).thenReturn(false);
         when(() => p2.isDisposed).thenReturn(false);
         when(() => p1.pause()).thenAnswer((_) async {});
@@ -133,8 +133,8 @@ void main() {
         final scopeA = CoreAudioHandler.instance!;
         final scopeB = CoreAudioHandler(debugName: 'B');
 
-        final pA = MockTuPlayer();
-        final pB = MockTuPlayer();
+        final pA = MockCorePlayer();
+        final pB = MockCorePlayer();
         when(() => pA.isDisposed).thenReturn(false);
         when(() => pB.isDisposed).thenReturn(false);
         when(() => pA.pause()).thenAnswer((_) async {});
@@ -160,8 +160,8 @@ void main() {
     test('players getter is per-scope, not global', () async {
       final scopeA = CoreAudioHandler.instance!;
       final scopeB = CoreAudioHandler(debugName: 'B');
-      final pA = MockTuPlayer();
-      final pB = MockTuPlayer();
+      final pA = MockCorePlayer();
+      final pB = MockCorePlayer();
       when(() => pA.isDisposed).thenReturn(false);
       when(() => pB.isDisposed).thenReturn(false);
 
@@ -180,7 +180,7 @@ void main() {
       'attach on the ACTIVE scope (default) does NOT activate the session (deferred to play)',
       () async {
         final scope = CoreAudioHandler.instance!;
-        final p = MockTuPlayer();
+        final p = MockCorePlayer();
         when(() => p.isDisposed).thenReturn(false);
 
         await scope.attach(p);
@@ -195,7 +195,7 @@ void main() {
       'requestActiveSession on the ACTIVE scope activates the session',
       () async {
         final scope = CoreAudioHandler.instance!;
-        final p = MockTuPlayer();
+        final p = MockCorePlayer();
         when(() => p.isDisposed).thenReturn(false);
 
         await scope.attach(p);
@@ -209,7 +209,7 @@ void main() {
       'requestActiveSession on a NON-ACTIVE scope does NOT activate the session',
       () async {
         final preview = CoreAudioHandler(debugName: 'preview');
-        final p = MockTuPlayer();
+        final p = MockCorePlayer();
         when(() => p.isDisposed).thenReturn(false);
 
         await preview.attach(p);
@@ -223,7 +223,7 @@ void main() {
       'detach on the ACTIVE scope (last player) deactivates the session',
       () async {
         final scope = CoreAudioHandler.instance!;
-        final p = MockTuPlayer();
+        final p = MockCorePlayer();
         when(() => p.isDisposed).thenReturn(false);
 
         await scope.attach(p);
@@ -237,7 +237,7 @@ void main() {
       'detach on a NON-ACTIVE scope does NOT deactivate the session',
       () async {
         final preview = CoreAudioHandler(debugName: 'preview');
-        final p = MockTuPlayer();
+        final p = MockCorePlayer();
         when(() => p.isDisposed).thenReturn(false);
 
         await preview.attach(p);
@@ -295,7 +295,7 @@ void main() {
       () async {
         final scopeA = CoreAudioHandler.instance!;
         final scopeB = CoreAudioHandler(debugName: 'B');
-        final pA = MockTuPlayer();
+        final pA = MockCorePlayer();
         when(() => pA.isDisposed).thenReturn(false);
         when(() => pA.pause()).thenAnswer((_) async {});
         await scopeA.attach(pA);
@@ -453,7 +453,7 @@ void main() {
       'legacy static attachPlayer routes through the default scope',
       () async {
         final defaultScope = CoreAudioHandler.instance!;
-        final p = MockTuPlayer();
+        final p = MockCorePlayer();
         when(() => p.isDisposed).thenReturn(false);
 
         await CoreAudioHandler.attachPlayer(p);
@@ -470,7 +470,7 @@ void main() {
       'legacy static detachPlayer routes through the default scope',
       () async {
         final defaultScope = CoreAudioHandler.instance!;
-        final p = MockTuPlayer();
+        final p = MockCorePlayer();
         when(() => p.isDisposed).thenReturn(false);
         await CoreAudioHandler.attachPlayer(p);
 
@@ -485,8 +485,8 @@ void main() {
       'static attachedPlayers does NOT include players from non-default scopes',
       () async {
         final scopeB = CoreAudioHandler(debugName: 'B');
-        final pDefault = MockTuPlayer();
-        final pB = MockTuPlayer();
+        final pDefault = MockCorePlayer();
+        final pB = MockCorePlayer();
         when(() => pDefault.isDisposed).thenReturn(false);
         when(() => pB.isDisposed).thenReturn(false);
 

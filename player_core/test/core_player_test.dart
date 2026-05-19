@@ -4,8 +4,8 @@ import 'package:player_core/player_core.dart';
 
 import 'test_setup.dart';
 
-class _FakeTuPlayer extends CorePlayer {
-  _FakeTuPlayer();
+class _FakeCorePlayer extends CorePlayer {
+  _FakeCorePlayer();
 
   @override
   CoreAudioSource? get audioSource => null;
@@ -203,8 +203,8 @@ void main() {
 
   group('CorePlayer (abstract)', () {
     test('uses identity equality (distinct instances are not equal)', () {
-      final a = _FakeTuPlayer();
-      final b = _FakeTuPlayer();
+      final a = _FakeCorePlayer();
+      final b = _FakeCorePlayer();
 
       expect(a, isNot(equals(b)));
       expect(a, equals(a));
@@ -231,7 +231,7 @@ void main() {
 
     test('default callbacks are no-ops (do not throw)', () {
       const base = _DefaultObserver();
-      final player = _FakeTuPlayer();
+      final player = _FakeCorePlayer();
       final src = HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3'));
       base.onCreate(player);
       base.onLoad(player, src);

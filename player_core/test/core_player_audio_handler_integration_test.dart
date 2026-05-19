@@ -26,9 +26,9 @@ void main() {
     test(
       'attaching three players sequentially should pause earlier players and promote the latest to current',
       () async {
-        final p1 = MockTuPlayer();
-        final p2 = MockTuPlayer();
-        final p3 = MockTuPlayer();
+        final p1 = MockCorePlayer();
+        final p2 = MockCorePlayer();
+        final p3 = MockCorePlayer();
         for (final p in [p1, p2, p3]) {
           when(() => p.isDisposed).thenReturn(false);
           when(() => p.pause()).thenAnswer((_) async {});
@@ -49,8 +49,8 @@ void main() {
     test(
       'detaching the current player should null currentPlayer while keeping the rest attached',
       () async {
-        final p1 = MockTuPlayer();
-        final p2 = MockTuPlayer();
+        final p1 = MockCorePlayer();
+        final p2 = MockCorePlayer();
         for (final p in [p1, p2]) {
           when(() => p.isDisposed).thenReturn(false);
           when(() => p.pause()).thenAnswer((_) async {});
@@ -69,8 +69,8 @@ void main() {
     test(
       'onTaskRemoved should clear all attached players and stop only the non-disposed ones',
       () async {
-        final live = MockTuPlayer();
-        final disposed = MockTuPlayer();
+        final live = MockCorePlayer();
+        final disposed = MockCorePlayer();
         when(() => live.isDisposed).thenReturn(false);
         when(() => disposed.isDisposed).thenReturn(true);
         when(() => live.pause()).thenAnswer((_) async {});
