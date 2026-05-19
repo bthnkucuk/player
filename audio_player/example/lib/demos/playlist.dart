@@ -183,24 +183,58 @@ class _PlaylistDemoState extends State<PlaylistDemo> {
                     ),
                   )
                 else
-                  for (int index = 0; index < queue.length; index++)
-                    Builder(
-                      key: ValueKey<int>(index),
-                      builder: (BuildContext context) {
-                        final CorePlayerAudioSource source = queue[index];
-                        final bool isCurrent = index == queue.currentIndex;
-                        return ListTile(
-                          leading: _TrackArtwork(artUri: source.artUri, size: 56, isCurrent: isCurrent, index: index),
-                          title: Text(
-                            source.title,
-                            style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal),
-                          ),
-                          subtitle: source.artist == null ? null : Text(source.artist!),
-                          trailing: isCurrent ? const Icon(Icons.equalizer) : null,
-                          onTap: () => _safe(() => _player.skipToIndex(index)),
-                        );
-                      },
-                    ),
+                  // Nested ReorderableListView inside the outer ListView so the
+                  // queue rows can be dragged. `shrinkWrap: true` +
+                  // `NeverScrollableScrollPhysics` lets the outer ListView own
+                  // scrolling while reorder drag gestures still flow to the
+                  // inner widget.
+                  ReorderableListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    buildDefaultDragHandles: false,
+                    itemCount: queue.length,
+                    onReorder: (int oldIndex, int newIndex) {
+                      // Flutter passes a newIndex computed against the
+                      // pre-removal list when dragging DOWN, so decrement by
+                      // 1 before forwarding to CorePlayer.moveItem.
+                      final int adjusted = newIndex > oldIndex ? newIndex - 1 : newIndex;
+                      if (adjusted == oldIndex) return;
+                      _safe(() => _player.moveItem(oldIndex, adjusted));
+                    },
+                    itemBuilder: (BuildContext context, int index) {
+                      final CorePlayerAudioSource source = queue[index];
+                      final bool isCurrent = index == queue.currentIndex;
+                      return ListTile(
+                        key: ValueKey<String>(
+                          'playlist-row-${source.url ?? source.filePath ?? source.title}',
+                        ),
+                        leading: _TrackArtwork(artUri: source.artUri, size: 56, isCurrent: isCurrent, index: index),
+                        title: Text(
+                          source.title,
+                          style: TextStyle(fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal),
+                        ),
+                        subtitle: source.artist == null ? null : Text(source.artist!),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            if (isCurrent)
+                              const Padding(
+                                padding: EdgeInsets.only(right: 4),
+                                child: Icon(Icons.equalizer),
+                              ),
+                            ReorderableDragStartListener(
+                              index: index,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 8),
+                                child: Icon(Icons.drag_handle),
+                              ),
+                            ),
+                          ],
+                        ),
+                        onTap: () => _safe(() => _player.skipToIndex(index)),
+                      );
+                    },
+                  ),
               ],
             );
           },
