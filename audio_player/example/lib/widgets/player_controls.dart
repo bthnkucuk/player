@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:player_core/player_core.dart';
 
-/// Big play / pause / stop button row that adapts to [CorePlayerState] and
-/// [isPlaying]. Renders a progress indicator while loading, a replay icon
-/// when completed, and a play/pause toggle otherwise.
+/// Transport row: replay 10s, skip prev, play/pause/stop, skip next, forward 10s.
+///
+/// Skip prev/next are auto-disabled when the active queue is single-track or
+/// empty; the ±10s buttons are auto-disabled while the duration is unknown.
+/// The widget reads queue / position / duration from [player]'s streams.
 class PlayPauseStopButtons extends StatelessWidget {
   const PlayPauseStopButtons({
+    required this.player,
     required this.state,
     required this.isPlaying,
     required this.onPlay,
@@ -15,12 +18,15 @@ class PlayPauseStopButtons extends StatelessWidget {
     super.key,
   });
 
+  final CorePlayer player;
   final CorePlayerState state;
   final bool isPlaying;
   final VoidCallback onPlay;
   final VoidCallback onPause;
   final VoidCallback onStop;
   final bool showStop;
+
+  static const Duration _seekStep = Duration(seconds: 10);
 
   @override
   Widget build(BuildContext context) {
@@ -42,14 +48,94 @@ class PlayPauseStopButtons extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: <Widget>[
+        _SeekRelativeButton(player: player, icon: Icons.replay_10, delta: -_seekStep),
+        const SizedBox(width: 8),
+        _SkipButton(player: player, isNext: false),
+        const SizedBox(width: 8),
         primary,
         if (showStop) ...<Widget>[
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
           IconButton(iconSize: 40, icon: const Icon(Icons.stop_circle), onPressed: onStop),
         ],
+        const SizedBox(width: 8),
+        _SkipButton(player: player, isNext: true),
+        const SizedBox(width: 8),
+        _SeekRelativeButton(player: player, icon: Icons.forward_10, delta: _seekStep),
       ],
     );
   }
+}
+
+class _SkipButton extends StatelessWidget {
+  const _SkipButton({required this.player, required this.isNext});
+
+  final CorePlayer player;
+  final bool isNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<CorePlayerQueue>(
+      stream: player.queueStream,
+      initialData: player.queue,
+      builder: (BuildContext context, AsyncSnapshot<CorePlayerQueue> snap) {
+        final bool enabled = (snap.data?.length ?? 0) > 1;
+        // Tooltip explains the disabled state; without it the greyed icon is
+        // ambiguous (could read as a transient buffering state).
+        return Tooltip(
+          message: enabled
+              ? (isNext ? 'Skip next' : 'Skip previous')
+              : 'Queue has a single track',
+          child: IconButton(
+            iconSize: 36,
+            icon: Icon(isNext ? Icons.skip_next : Icons.skip_previous),
+            onPressed: enabled
+                ? (isNext ? () => player.skipToNext() : () => player.skipToPrevious())
+                : null,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SeekRelativeButton extends StatelessWidget {
+  const _SeekRelativeButton({required this.player, required this.icon, required this.delta});
+
+  final CorePlayer player;
+  final IconData icon;
+  final Duration delta;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Duration>(
+      stream: player.durationStream,
+      initialData: player.duration,
+      builder: (BuildContext context, AsyncSnapshot<Duration> durSnap) {
+        final Duration duration = durSnap.data ?? Duration.zero;
+        final bool enabled = duration > Duration.zero;
+        return IconButton(
+          iconSize: 36,
+          icon: Icon(icon),
+          onPressed: enabled
+              ? () {
+                  final Duration target = _clampDuration(
+                    player.position + delta,
+                    Duration.zero,
+                    duration,
+                  );
+                  player.seek(target);
+                }
+              : null,
+        );
+      },
+    );
+  }
+}
+
+Duration _clampDuration(Duration value, Duration min, Duration max) {
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
 }
 
 /// Drop-down for playback speed.
