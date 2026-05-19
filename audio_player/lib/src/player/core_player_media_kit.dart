@@ -1052,66 +1052,6 @@ class CorePlayerMediaKit extends CorePlayer
   }
 
   @override
-  Future<void> pause() async {
-    if (_disposed) {
-      _throwAndEmit(const PlayerDisposedFailure());
-    }
-    await runOnNative(() => player.pause());
-    CorePlayer.observer?.onPause(this);
-  }
-
-  @override
-  Future<void> seek(Duration position) async {
-    if (_disposed) {
-      _throwAndEmit(const PlayerDisposedFailure());
-    }
-    Duration positionToSeek = position;
-    final Duration dur = player.state.duration;
-    if (position > dur - seekEndThreshold) {
-      return;
-    }
-
-    if (position < seekStartThreshold) {
-      positionToSeek = Duration.zero;
-    }
-
-    final platform = player.platform;
-    if (platform is NativePlayer && dur.inMilliseconds > 0) {
-      // Bypass libavformat's slow mp3_seek path on HTTP-streamed MP3 by
-      // routing through libmpv's SEEK_FACTOR / AVSEEK_FLAG_BYTE path. See
-      // `audio_player/example/lib/demos/raw_media_kit.dart`
-      // (_seekByPercent) for the full rationale. `as dynamic` is required
-      // because NativePlayer is a stub on web without `command()`.
-      final double pct = (positionToSeek.inMilliseconds / dur.inMilliseconds * 100).clamp(0.0, 100.0);
-      await runOnNative(() async {
-        await (platform as dynamic).command(['seek', pct.toString(), 'absolute-percent+keyframes']);
-      });
-    } else {
-      await runOnNative(() => player.seek(positionToSeek));
-    }
-    CorePlayer.observer?.onSeek(this, positionToSeek);
-  }
-
-  @override
-  Future<void> stop({bool fromDispose = false}) async {
-    if (_disposed && !fromDispose) {
-      _throwAndEmit(const PlayerDisposedFailure());
-    }
-
-    needToLoad = true;
-
-    if (!fromDispose) {
-      await runOnNative(() => player.seek(Duration.zero));
-      await runOnNative(() => player.pause());
-    } else {
-      await runOnNative(() => player.stop());
-    }
-    currentAudioHandler?.emitPlaybackState(PlaybackState());
-    currentAudioHandler?.emitMediaItem(null);
-    CorePlayer.observer?.onStop(this);
-  }
-
-  @override
   Future<void> waitForReady({Duration? timeout}) async {
     if (_disposed) {
       _throwAndEmit(const PlayerDisposedFailure());
