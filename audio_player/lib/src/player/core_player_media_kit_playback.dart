@@ -22,6 +22,14 @@ mixin CorePlayerMediaKitPlayback on CorePlayer, CorePlayerMediaKitConcurrency {
   // must drop the network auto-resume eligibility flag so a pending
   // resume-on-reconnect does not fight an explicit pause/play action.
   void _clearNetworkAutoResume();
+  // Typed-event emit seams supplied by [CorePlayerMediaKitEvents]. Stop +
+  // seek are user-driven, so the emission happens at the public call site
+  // (here) rather than in a derived engine-stream listener.
+  void _emitStopEvent();
+  void _emitSeekEvent({
+    required Duration fromPosition,
+    required Duration toPosition,
+  });
 
   @override
   Future<void> setVolume(double volume) async {
@@ -65,6 +73,9 @@ mixin CorePlayerMediaKitPlayback on CorePlayer, CorePlayerMediaKitConcurrency {
     }
     Duration positionToSeek = position;
     final Duration dur = player.state.duration;
+    // Capture the pre-seek playhead BEFORE any threshold-snap or native
+    // call. Used as `from` for the typed [PlaybackSeekEvent].
+    final preSeekPosition = player.state.position;
     if (position > dur - CorePlayerMediaKit.seekEndThreshold) {
       return;
     }
@@ -87,6 +98,7 @@ mixin CorePlayerMediaKitPlayback on CorePlayer, CorePlayerMediaKitConcurrency {
     } else {
       await runOnNative(() => player.seek(positionToSeek));
     }
+    _emitSeekEvent(fromPosition: preSeekPosition, toPosition: positionToSeek);
     CorePlayer.observer?.onSeek(this, positionToSeek);
   }
 
@@ -106,6 +118,12 @@ mixin CorePlayerMediaKitPlayback on CorePlayer, CorePlayerMediaKitConcurrency {
     }
     currentAudioHandler?.emitPlaybackState(PlaybackState());
     currentAudioHandler?.emitMediaItem(null);
+    // Dispose drives its own teardown, so we skip the typed stop event on
+    // that path — the consumer-driven `stop()` is the one analytics care
+    // about. The natural completion + skip flows have their own events.
+    if (!fromDispose) {
+      _emitStopEvent();
+    }
     CorePlayer.observer?.onStop(this);
   }
 

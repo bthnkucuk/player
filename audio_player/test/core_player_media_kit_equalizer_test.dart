@@ -136,15 +136,21 @@ void main() {
     });
 
     test(
-      'setEqualizerBands([0, ...]) pushes af=equalizer=0.0:0.0:...:0.0 at native',
+      'setEqualizerBands([0, ...]) pushes a 10-instance libavfilter '
+      'equalizer chain at native',
       () async {
         final p = CorePlayerMediaKit(testPlayer: mockPlayer);
         await p.setEqualizerBands(const [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
         expect(capturedSpecs, isNotEmpty);
-        expect(
-          capturedSpecs.last,
-          'equalizer=0.0:0.0:0.0:0.0:0.0:0.0:0.0:0.0:0.0:0.0',
-        );
+        // The expected spec is one single-band equalizer instance per
+        // canonical frequency, joined by commas. The legacy combined
+        // form (`equalizer=g0:g1:...`) was deprecated in modern mpv.
+        final freqs = CorePlayer.equalizerBandFrequenciesHz;
+        final expected = [
+          for (int i = 0; i < freqs.length; i++)
+            'equalizer=f=${freqs[i]}:t=o:w=1:g=0.0',
+        ].join(',');
+        expect(capturedSpecs.last, expected);
         await p.dispose();
       },
     );
@@ -179,15 +185,15 @@ void main() {
         final p = CorePlayerMediaKit(testPlayer: mockPlayer);
         await p.setEqualizerBands(const [20, -20, 5, -5, 13, -13, 0, 12, -12, 1.5]);
         // The native applier sees clamped values, not the raw input.
-        expect(
-          capturedSpecs.last,
-          'equalizer=12.0:-12.0:5.0:-5.0:12.0:-12.0:0.0:12.0:-12.0:1.5',
-        );
+        final freqs = CorePlayer.equalizerBandFrequenciesHz;
+        final clamped = [12.0, -12.0, 5.0, -5.0, 12.0, -12.0, 0.0, 12.0, -12.0, 1.5];
+        final expected = [
+          for (int i = 0; i < freqs.length; i++)
+            'equalizer=f=${freqs[i]}:t=o:w=1:g=${clamped[i].toStringAsFixed(1)}',
+        ].join(',');
+        expect(capturedSpecs.last, expected);
         // Subject mirrors the clamped values.
-        expect(
-          p.equalizerBands,
-          [12.0, -12.0, 5.0, -5.0, 12.0, -12.0, 0.0, 12.0, -12.0, 1.5],
-        );
+        expect(p.equalizerBands, clamped);
         await p.dispose();
       },
     );

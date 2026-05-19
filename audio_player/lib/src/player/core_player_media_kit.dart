@@ -22,6 +22,7 @@ part 'core_player_media_kit_capabilities.dart';
 part 'core_player_media_kit_live.dart';
 part 'core_player_media_kit_equalizer.dart';
 part 'core_player_media_kit_network.dart';
+part 'core_player_media_kit_events.dart';
 
 /// Position-restoration SLA for [CorePlayerMediaKit.replaceAt] when
 /// `preservePosition: true` is requested for the active index. Buffer-aware
@@ -37,7 +38,8 @@ class CorePlayerMediaKit extends CorePlayer
         CorePlayerMediaKitPlayback,
         CorePlayerMediaKitMutation,
         CorePlayerMediaKitLive,
-        CorePlayerMediaKitNetwork {
+        CorePlayerMediaKitNetwork,
+        CorePlayerMediaKitEvents {
   /// Seeks within this distance of the start are snapped to zero
   /// (avoids triggering a buffer flush for cosmetic micro-seeks).
   static const Duration seekStartThreshold = Duration(milliseconds: 300);
@@ -414,6 +416,10 @@ class CorePlayerMediaKit extends CorePlayer
           );
       }
     });
+    // Wire the typed playback-event pipeline AFTER the engine
+    // subscriptions are installed but BEFORE autoLoad fires so an
+    // immediate playing transition triggered by autoLoad is captured.
+    _initPlaybackEvents();
     if (audioSource != null && autoLoad) {
       _trackPending(
         load(audioSource).catchError((Object e, StackTrace s) {
@@ -515,6 +521,42 @@ class CorePlayerMediaKit extends CorePlayer
   StreamSubscription<bool>? _shuffleSubscription;
   StreamSubscription<CorePlayerPositionData>? _positionDataSubscription;
   StreamSubscription<bool>? _queueExhaustedSubscription;
+
+  // Typed playback-event plumbing. The behavior lives in the
+  // [CorePlayerMediaKitEvents] mixin; the host class owns the storage
+  // (mixins cannot declare instance state) plus the broadcast controller
+  // closed by [dispose].
+  @override
+  StreamSubscription<bool>? _eventsPlayingSub;
+  @override
+  StreamSubscription<bool>? _eventsCompletedSub;
+  @override
+  StreamSubscription<bool>? _eventsBufferingSub;
+  @override
+  Timer? _eventsHeartbeatTimer;
+
+  /// Last `playing` value observed by the event pipeline. Used to detect
+  /// the false→true edge for [PlaybackStartedEvent] and to gate the
+  /// stall detector (mid-playback buffering only).
+  @override
+  bool _eventsLastPlaying = false;
+
+  /// Wall-clock anchor for [PlaybackHeartbeatEvent.elapsedSinceStart].
+  /// Reset on every false→true playing edge so a pause/resume on the same
+  /// source starts the elapsed counter fresh — matching how royalty
+  /// pipelines accumulate listen-time.
+  @override
+  DateTime? _eventsStartTimestamp;
+
+  /// Tracks an in-flight stall window so the matching end emission can
+  /// compute [PlaybackStallEndedEvent.stallDuration] without an extra
+  /// listener.
+  @override
+  DateTime? _eventsStallStartedAt;
+
+  @override
+  final StreamController<CorePlaybackEvent> _playbackEventController =
+      StreamController<CorePlaybackEvent>.broadcast();
 
   final BehaviorSubject<String?> _playerErrorSubject =
       BehaviorSubject<String?>.seeded(null);
@@ -1075,6 +1117,10 @@ class CorePlayerMediaKit extends CorePlayer
     await _shuffleSubscription?.cancel();
     await _positionDataSubscription?.cancel();
     await _queueExhaustedSubscription?.cancel();
+    // Event pipeline: cancel BEFORE the controller closes so a late
+    // engine-stream emission cannot synthesize an event into a torn-down
+    // controller.
+    await _disposePlaybackEvents();
 
     // 2. Run stop(fromDispose: true). It writes only to the external
     //    audio_handler streams + native player; our local subjects no longer
@@ -1098,6 +1144,7 @@ class CorePlayerMediaKit extends CorePlayer
     await _positionDataSubject.close();
     await _networkHintSubject.close();
     await _errorController.close();
+    await _playbackEventController.close();
 
     // 4. Notify observer (after local resources are closed; before native
     //    player.dispose() so the callback can still inspect the impl).

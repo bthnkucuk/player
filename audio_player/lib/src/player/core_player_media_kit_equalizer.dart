@@ -49,9 +49,23 @@ final List<double> _kEqualizerFlat = List<double>.unmodifiable(
   List<double>.filled(10, 0.0),
 );
 
-/// Format a band list as libmpv's `equalizer` filter expects:
-/// `equalizer=g0:g1:...:g9`. One decimal place keeps the property string
-/// compact and predictable to compare against in tests.
+/// Format a band list as a libavfilter `af` filter chain — one
+/// single-band `equalizer` instance per band, joined by commas. mpv's
+/// legacy combined `equalizer=g0:...:g9` filter was deprecated and no
+/// longer initializes on modern builds ("audio filter initialized
+/// failed"); stacking single-band `equalizer` instances at the canonical
+/// 10-band center frequencies is the libav-shipped replacement that
+/// every modern mpv supports.
+///
+/// Each instance uses `t=o:w=1` — width-type=octave, width=1 octave —
+/// so adjacent bands overlap symmetrically at the half-power point.
+/// One decimal place on each gain keeps the property string compact
+/// and predictable for test comparisons.
 String _formatEqualizerSpec(List<double> gains) {
-  return 'equalizer=${gains.map((g) => g.toStringAsFixed(1)).join(':')}';
+  final parts = <String>[];
+  for (var i = 0; i < gains.length; i++) {
+    final f = CorePlayer.equalizerBandFrequenciesHz[i];
+    parts.add('equalizer=f=$f:t=o:w=1:g=${gains[i].toStringAsFixed(1)}');
+  }
+  return parts.join(',');
 }

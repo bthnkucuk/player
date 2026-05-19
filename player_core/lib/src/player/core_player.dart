@@ -7,6 +7,7 @@ import 'package:player_core/src/failures/core_player_failure.dart';
 import 'package:player_core/src/observer/core_player_observer.dart';
 import 'package:player_core/src/player/core_audio_handler.dart';
 import 'package:player_core/src/player/core_network_hint.dart';
+import 'package:player_core/src/player/core_playback_event.dart';
 import 'package:player_core/src/player/core_player_capabilities.dart';
 import 'package:player_core/src/queue/core_player_queue.dart';
 
@@ -353,6 +354,10 @@ abstract class CorePlayer {
   /// Stream of hint changes. Useful for UI that displays connectivity
   /// status without owning the connectivity source.
   Stream<NetworkHint> get networkHintStream;
+
+  /// Typed playback events for analytics. Cold (broadcast); subscribers
+  /// receive all events emitted after subscription. Multi-subscriber safe.
+  Stream<CorePlaybackEvent> get playbackEventStream;
 
   Future<void> stop({bool fromDispose = false});
 
