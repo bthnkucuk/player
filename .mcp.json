@@ -3,7 +3,7 @@
     "patrol": {
       "command": "./.claude/run-patrol",
       "env": {
-        "PROJECT_ROOT": ".",
+        "PROJECT_ROOT": "audio_player/example",
         "PATROL_FLAGS": "",
         "SHOW_TERMINAL": "false"
       }

@@ -31,11 +31,6 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  # integration_test ships with the Flutter SDK and is required to run
-  # `integration_test/*.dart` tests (e.g. seek_performance_test.dart) on a
-  # real device or emulator. Test-only dep; not pulled into release builds.
-  integration_test:
-    sdk: flutter
   flutter_lints: ^6.0.0
   patrol: ^4.5.0
 

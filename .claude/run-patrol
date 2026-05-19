@@ -36,11 +36,23 @@ fi
 #    The snapshot name embeds the Dart SDK version (e.g. patrol_mcp.dart-3.11.5.snapshot),
 #    so we glob to remain robust across SDK bumps.
 find_snapshot() {
-  # Search in priority order: workspace root, audio_player/example, current dir.
-  # patrol_mcp is a workspace-root dev_dep (so its snapshot ends up in the
-  # root .dart_tool); the example path is a fallback for setups where patrol_mcp
-  # is installed alongside patrol in the example app instead.
-  for root in "$PROJECT_ROOT" "$PROJECT_ROOT/audio_player/example" "$PWD"; do
+  # Search in priority order: workspace root (derived from this script's
+  # parent dir — `.claude/run-patrol` lives at <workspace>/.claude/),
+  # explicit PROJECT_ROOT, the legacy example path, and finally the current
+  # working dir.
+  #
+  # Why the workspace-root lookup is first: when `.mcp.json` points
+  # PROJECT_ROOT at `audio_player/example` (so patrol_cli runs inside an
+  # actual Flutter project), the patrol_mcp snapshot still lives one level
+  # up at `<workspace>/.dart_tool/...` because patrol_mcp is declared as a
+  # dev_dep in the workspace root's pubspec, not the example's (see
+  # CHANGELOG: `patrol_mcp` → `patrol_cli` → `win32 ^5.x` clashes with
+  # example's `talker_flutter` → `share_plus` → `win32 ^6.x`). The
+  # `audio_player/example` entry below is a fallback for setups where
+  # patrol_mcp is installed alongside the example app instead.
+  script_dir=$(cd "$(dirname "$0")" && pwd)
+  workspace_root=$(cd "$script_dir/.." && pwd)
+  for root in "$workspace_root" "$PROJECT_ROOT" "$PROJECT_ROOT/audio_player/example" "$PWD"; do
     snap=$(ls "$root"/.dart_tool/pub/bin/patrol_mcp/patrol_mcp.dart-*.snapshot 2>/dev/null | head -1)
     if [ -n "$snap" ] && [ -f "$snap" ]; then
       printf '%s\n' "$snap"
@@ -53,14 +65,21 @@ find_snapshot() {
 # 2) Find the dart binary FVM is using for this project (matches the snapshot's SDK).
 find_fvm_dart() {
   # Read .fvmrc directly (fast, avoids cold `fvm exec` overhead).
-  if [ -f "$PROJECT_ROOT/.fvmrc" ]; then
-    ver=$(sed -n 's/.*"flutter"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$PROJECT_ROOT/.fvmrc" | head -1)
-    candidate="$HOME/fvm/versions/$ver/bin/cache/dart-sdk/bin/dart"
-    if [ -x "$candidate" ]; then
-      printf '%s\n' "$candidate"
-      return 0
+  # The workspace pins Flutter at the repo root (`.fvmrc` is only at
+  # `<workspace>/`, not inside `audio_player/example`), so probe both the
+  # current PROJECT_ROOT and the workspace root (script_dir/..).
+  script_dir=$(cd "$(dirname "$0")" && pwd)
+  workspace_root=$(cd "$script_dir/.." && pwd)
+  for fvmrc_dir in "$PROJECT_ROOT" "$workspace_root"; do
+    if [ -f "$fvmrc_dir/.fvmrc" ]; then
+      ver=$(sed -n 's/.*"flutter"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$fvmrc_dir/.fvmrc" | head -1)
+      candidate="$HOME/fvm/versions/$ver/bin/cache/dart-sdk/bin/dart"
+      if [ -x "$candidate" ]; then
+        printf '%s\n' "$candidate"
+        return 0
+      fi
     fi
-  fi
+  done
   # Fall back to fvm-managed dart via `fvm exec` (slower cold path).
   if command -v fvm >/dev/null 2>&1; then
     fvm_dart=$(fvm exec which dart 2>/dev/null | tail -1)
