@@ -147,10 +147,9 @@ void main() {
   Future<void> primeQueue(int length) async {
     final sources = List.generate(
       length,
-      (i) => CorePlayerAudioSource(
+      (i) => HttpAudioSource(
         title: 't$i',
-        url: 'https://example.com/$i.mp3',
-      ),
+        url: Uri.parse('https://example.com/$i.mp3')),
     );
     await player.setQueue(CorePlayerQueue(sources));
     // setQueue's _setQueueLocked calls runOnNative(player.open) which our
@@ -270,7 +269,7 @@ void main() {
       CorePlayerMediaKit.debugSetConfigurationForTest(
         CorePlayerConfiguration(
           internalPositionThrottle: Duration.zero,
-          onQueueExhausted: () async => <CorePlayerAudioSource>[],
+          onQueueExhausted: () async => <CoreAudioSource>[],
         ),
       );
       player = CorePlayerMediaKit(testPlayer: mockPlayer);
@@ -291,14 +290,12 @@ void main() {
       'callback returns non-empty: append via player.add + jump + play',
       () async {
         final extra = [
-          CorePlayerAudioSource(
+          HttpAudioSource(
             title: 'extra-1',
-            url: 'https://example.com/extra-1.mp3',
-          ),
-          CorePlayerAudioSource(
+            url: Uri.parse('https://example.com/extra-1.mp3')),
+          HttpAudioSource(
             title: 'extra-2',
-            url: 'https://example.com/extra-2.mp3',
-          ),
+            url: Uri.parse('https://example.com/extra-2.mp3')),
         ];
         CorePlayerMediaKit.debugSetConfigurationForTest(
           CorePlayerConfiguration(
@@ -351,10 +348,9 @@ void main() {
         // append through `_appendAllLocked` so both paths share the
         // single growable-list invariant.
         final extra = [
-          CorePlayerAudioSource(
+          HttpAudioSource(
             title: 'auto-1',
-            url: 'https://example.com/auto-1.mp3',
-          ),
+            url: Uri.parse('https://example.com/auto-1.mp3')),
         ];
         CorePlayerMediaKit.debugSetConfigurationForTest(
           CorePlayerConfiguration(
@@ -384,10 +380,9 @@ void main() {
         // regression, this throws `Unsupported operation: Cannot add to an
         // unmodifiable list`.
         await player.appendToQueue(
-          CorePlayerAudioSource(
+          HttpAudioSource(
             title: 'user-added',
-            url: 'https://example.com/user-added.mp3',
-          ),
+            url: Uri.parse('https://example.com/user-added.mp3')),
         );
         // No exception → invariant preserved.
       },
@@ -404,7 +399,7 @@ void main() {
             onQueueExhausted: () {
               callCount++;
               return gate.future.then(
-                (_) => <CorePlayerAudioSource>[],
+                (_) => <CoreAudioSource>[],
               );
             },
           ),

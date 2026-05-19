@@ -55,7 +55,7 @@ void main() {
   group('Bidirectional event routing between CoreAudioHandler and CorePlayerMediaKit', () {
     test('handler.play / pause / seek / stop emit events that the player consumes '
         'in the same order', () async {
-      await player.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await player.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
       _rearm(mockPlayer, mockStream, mockState, h);
 
       await bridge.play();
@@ -76,7 +76,7 @@ void main() {
 
     test('completed=true upstream sets needToLoad; subsequent handler.play() '
         'triggers a re-load on the underlying Player', () async {
-      final src = CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3');
+      final src = HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3'));
       await player.load(src);
       expect(player.needToLoad, isFalse);
 
@@ -105,7 +105,7 @@ void main() {
     });
 
     test('InterruptionBegin while playing causes the impl to pause', () async {
-      await player.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await player.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
       // Pretend we are playing.
       when(() => mockState.playing).thenReturn(true);
       h.playing.add(true);
@@ -122,7 +122,7 @@ void main() {
     });
 
     test('InterruptionEnd(shouldResume: true) causes the impl to play', () async {
-      await player.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await player.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
       _rearm(mockPlayer, mockStream, mockState, h);
 
       handler.debugPostEvent(CoreAudioHandlerInterruptionEndEvent(shouldResume: true));
@@ -132,7 +132,7 @@ void main() {
     });
 
     test('InterruptionEnd(shouldResume: false) does NOT play', () async {
-      await player.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await player.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
       _rearm(mockPlayer, mockStream, mockState, h);
 
       handler.debugPostEvent(CoreAudioHandlerInterruptionEndEvent(shouldResume: false));
@@ -142,7 +142,7 @@ void main() {
     });
 
     test('BecomingNoisy while playing causes the impl to pause', () async {
-      await player.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await player.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
       when(() => mockState.playing).thenReturn(true);
       h.playing.add(true);
       await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -158,7 +158,7 @@ void main() {
     });
 
     test('AppResume is a no-op (best-effort fallback only)', () async {
-      await player.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await player.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
       _rearm(mockPlayer, mockStream, mockState, h);
 
       handler.debugPostEvent(CoreAudioHandlerAppResumeEvent());
@@ -176,7 +176,7 @@ void main() {
       final h2 = StreamHarness();
       wirePlayer(mp2, ms2, mst2, h2);
       final p2 = CorePlayerMediaKit(testPlayer: mp2, audioHandler: handler);
-      await p2.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await p2.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
       addTearDown(() async {
         if (!p2.isDisposed) await p2.dispose();
         await h2.close();

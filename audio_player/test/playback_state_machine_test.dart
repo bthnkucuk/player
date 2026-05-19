@@ -69,7 +69,7 @@ void main() {
       // The state machine guards on `_audioSource == null` and returns idle
       // before any other branch fires. Load a source first so the rest of
       // the state machine is exercised.
-      await corePlayer.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await corePlayer.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
 
       // Subscribe before driving the streams so we capture every distinct emission.
       final states = <CorePlayerState>[];
@@ -110,7 +110,7 @@ void main() {
 
     test('error wins over ready/completed branches in the combineLatest', () async {
       // Load a source so the idle guard doesn't short-circuit before error.
-      await corePlayer.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await corePlayer.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
 
       // Seed a ready-looking state.
       h.buffer.add(const Duration(seconds: 10));
@@ -131,7 +131,7 @@ void main() {
 
     test('error path: load() resets needToLoad and clears the error signal', () async {
       // Pre-load so the idle guard doesn't short-circuit the error branch.
-      await corePlayer.load(CorePlayerAudioSource(title: 'pre', url: 'https://example.com/pre.mp3'));
+      await corePlayer.load(HttpAudioSource(title: 'pre', url: Uri.parse('https://example.com/pre.mp3')));
 
       // combineLatest5 needs ALL 5 inputs to have emitted at least once
       // before it fires. Completed is startWith-seeded and the error subject
@@ -150,7 +150,7 @@ void main() {
       // Now reload — load() sets _playerErrorSubject back to null AND clears
       // needToLoad. After this, a subsequent ready/loading tick must NOT be
       // forced back into error.
-      await corePlayer.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await corePlayer.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
       expect(corePlayer.needToLoad, isFalse);
 
       // Drive a ready-looking tick (buffer > position) to confirm the error
@@ -223,7 +223,7 @@ void main() {
 
   group('error -> recover behavior contract', () {
     test('error stream emission sets needToLoad and the next play() reloads', () async {
-      final src = CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3');
+      final src = HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3'));
       await corePlayer.load(src);
       expect(corePlayer.needToLoad, isFalse);
 

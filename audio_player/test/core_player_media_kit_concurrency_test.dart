@@ -126,14 +126,12 @@ void main() {
   });
 
   group('CorePlayerMediaKit concurrency (Faz H)', () {
-    const srcA = CorePlayerAudioSource(
+    final srcA = HttpAudioSource(
       title: 'A',
-      url: 'https://example.com/a.mp3',
-    );
-    const srcB = CorePlayerAudioSource(
+      url: Uri.parse('https://example.com/a.mp3'));
+    final srcB = HttpAudioSource(
       title: 'B',
-      url: 'https://example.com/b.mp3',
-    );
+      url: Uri.parse('https://example.com/b.mp3'));
 
     test(
       'stale setQueue completion does not overwrite the latest caller state',
@@ -155,13 +153,13 @@ void main() {
           return c.future;
         });
 
-        final f1 = player.setQueue(const CorePlayerQueue([srcA]));
+        final f1 = player.setQueue(CorePlayerQueue([srcA]));
         // Allow the first setQueue to acquire queueLock and reach its
         // open() await.
         await Future<void>.delayed(Duration.zero);
         expect(openCompleters.length, 1);
 
-        final f2 = player.setQueue(const CorePlayerQueue([srcB]));
+        final f2 = player.setQueue(CorePlayerQueue([srcB]));
         // f2 is parked on queueLock; only f1's open() is in flight.
         await Future<void>.delayed(Duration.zero);
         expect(openCompleters.length, 1);
@@ -198,7 +196,7 @@ void main() {
           () => mockPlayer.open(any(), play: any(named: 'play')),
         ).thenAnswer((_) => openCompleter.future);
 
-        final setQueueFuture = player.setQueue(const CorePlayerQueue([srcA]));
+        final setQueueFuture = player.setQueue(CorePlayerQueue([srcA]));
         // Allow setQueue to enter open() under both locks.
         await Future<void>.delayed(Duration.zero);
 
@@ -242,13 +240,13 @@ void main() {
         fakeAsync((async) {
           final p = CorePlayerMediaKit(testPlayer: localPlayer);
 
-          unawaited(p.setQueue(const CorePlayerQueue([srcA])));
+          unawaited(p.setQueue(CorePlayerQueue([srcA])));
           async.flushMicrotasks();
 
           Object? caught;
           unawaited(
             p
-                .setQueue(const CorePlayerQueue([srcB]))
+                .setQueue(CorePlayerQueue([srcB]))
                 .catchError((Object e) {
               caught = e;
             }),
@@ -283,7 +281,7 @@ void main() {
           () => mockPlayer.open(any(), play: any(named: 'play')),
         ).thenAnswer((_) => openCompleter.future);
 
-        final setQueueFuture = player.setQueue(const CorePlayerQueue([srcA]));
+        final setQueueFuture = player.setQueue(CorePlayerQueue([srcA]));
         await Future<void>.delayed(Duration.zero);
 
         final pauseFuture = player.pause();

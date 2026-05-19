@@ -119,9 +119,9 @@ void main() {
       );
 
       final player = CorePlayerMediaKit(testPlayer: mockPlayer);
-      const src1 = CorePlayerAudioSource(title: 'A', url: 'https://example.com/a.mp3');
-      const src2 = CorePlayerAudioSource(title: 'B', url: 'https://example.com/b.mp3');
-      await player.setQueue(const CorePlayerQueue([src1, src2], currentIndex: 1));
+      final src1 = HttpAudioSource(title: 'A', url: Uri.parse('https://example.com/a.mp3'));
+      final src2 = HttpAudioSource(title: 'B', url: Uri.parse('https://example.com/b.mp3'));
+      await player.setQueue(CorePlayerQueue([src1, src2], currentIndex: 1));
 
       // Drive a synthetic position emission so the position subject reflects
       // the playhead the user actually sees. We don't have an audio engine
@@ -211,11 +211,11 @@ void main() {
       // snapshot() reads via `position` (BehaviorSubject), so we drive via the
       // stream below.
       final original = CorePlayerMediaKit(testPlayer: originalMock);
-      const queue = CorePlayerQueue(
+      final queue = CorePlayerQueue(
         [
-          CorePlayerAudioSource(title: 'A', url: 'https://example.com/a.mp3'),
-          CorePlayerAudioSource(title: 'B', url: 'https://example.com/b.mp3'),
-          CorePlayerAudioSource(title: 'C', url: 'https://example.com/c.mp3'),
+          HttpAudioSource(title: 'A', url: Uri.parse('https://example.com/a.mp3')),
+          HttpAudioSource(title: 'B', url: Uri.parse('https://example.com/b.mp3')),
+          HttpAudioSource(title: 'C', url: Uri.parse('https://example.com/c.mp3')),
         ],
         currentIndex: 1,
       );
@@ -303,8 +303,8 @@ void main() {
         );
       });
 
-      const queue = CorePlayerQueue([
-        CorePlayerAudioSource(title: 'A', url: 'https://example.com/a.mp3'),
+      final queue = CorePlayerQueue([
+        HttpAudioSource(title: 'A', url: Uri.parse('https://example.com/a.mp3')),
       ]);
       final restored = await CorePlayer.restore(<String, Object?>{
         'schemaVersion': 1,

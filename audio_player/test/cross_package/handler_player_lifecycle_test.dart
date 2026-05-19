@@ -75,7 +75,7 @@ void main() {
         expect(CoreAudioHandler.isCurrentPlayer(f1.corePlayer), isFalse);
 
         await f2.corePlayer.load(
-          CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+          HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
         );
         f1.rearm();
         f2.rearm();
@@ -149,7 +149,7 @@ void main() {
         expect(CoreAudioHandler.currentPlayer, isNull);
 
         await f1.corePlayer.load(
-          CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+          HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
         );
         await f1.corePlayer.play();
         expect(CoreAudioHandler.isCurrentPlayer(f1.corePlayer), isTrue);

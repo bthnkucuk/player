@@ -125,7 +125,7 @@ void main() {
     });
 
     test('handler.play event invokes player.play when current', () async {
-      await player.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await player.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
       _rearm(mockPlayer, mockStream, mockState, h);
 
       handler.debugPostEvent(CoreAudioHandlerPlayEvent());
@@ -155,7 +155,7 @@ void main() {
     });
 
     test('events are ignored when player is not current', () async {
-      final src = CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3');
+      final src = HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3'));
       await player.load(src);
 
       final otherPlayer = MockPlayer();
@@ -197,7 +197,7 @@ void main() {
     });
 
     test('play() re-attaches non-current player and emits mediaItem', () async {
-      final src = CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3');
+      final src = HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3'));
       await player.load(src);
 
       final otherPlayer = MockPlayer();
@@ -215,7 +215,7 @@ void main() {
       expect(CoreAudioHandler.isCurrentPlayer(player), isFalse);
       await player.play();
       expect(CoreAudioHandler.isCurrentPlayer(player), isTrue);
-      expect(bridge.mediaItem.value?.id, src.url);
+      expect(bridge.mediaItem.value?.id, src.url.toString());
     });
 
     test('dispose detaches cleanly', () async {

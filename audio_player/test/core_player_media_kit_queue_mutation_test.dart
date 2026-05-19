@@ -184,28 +184,23 @@ void main() {
     await h.close();
   });
 
-  const srcA = CorePlayerAudioSource(
+  final srcA = HttpAudioSource(
     title: 'A',
-    url: 'https://example.com/a.mp3',
-  );
-  const srcB = CorePlayerAudioSource(
+    url: Uri.parse('https://example.com/a.mp3'));
+  final srcB = HttpAudioSource(
     title: 'B',
-    url: 'https://example.com/b.mp3',
-  );
-  const srcC = CorePlayerAudioSource(
+    url: Uri.parse('https://example.com/b.mp3'));
+  final srcC = HttpAudioSource(
     title: 'C',
-    url: 'https://example.com/c.mp3',
-  );
-  const srcD = CorePlayerAudioSource(
+    url: Uri.parse('https://example.com/c.mp3'));
+  final srcD = HttpAudioSource(
     title: 'D',
-    url: 'https://example.com/d.mp3',
-  );
-  const inserted = CorePlayerAudioSource(
+    url: Uri.parse('https://example.com/d.mp3'));
+  final inserted = HttpAudioSource(
     title: 'INS',
-    url: 'https://example.com/ins.mp3',
-  );
+    url: Uri.parse('https://example.com/ins.mp3'));
 
-  Future<void> primeQueue(List<CorePlayerAudioSource> q, {int index = 0}) async {
+  Future<void> primeQueue(List<CoreAudioSource> q, {int index = 0}) async {
     await player.setQueue(CorePlayerQueue(q, currentIndex: index));
     // Allow the playlist subscription microtask to run.
     await Future<void>.delayed(Duration.zero);
@@ -328,7 +323,7 @@ void main() {
     // Public contract: after moveItem(from, to), the source previously at
     // `from` ends up at index `to` in the resulting queue. Matrix over all
     // (from, to) combinations on a 4-item queue.
-    const matrix = <(int, int, List<CorePlayerAudioSource>)>[
+    final matrix = <(int, int, List<CoreAudioSource>)>[
       (0, 1, [srcB, srcA, srcC, srcD]),
       (0, 2, [srcB, srcC, srcA, srcD]),
       (0, 3, [srcB, srcC, srcD, srcA]),
@@ -485,7 +480,7 @@ void main() {
         return openCompleter.future;
       });
 
-      final setQueueFuture = player.setQueue(const CorePlayerQueue([srcA]));
+      final setQueueFuture = player.setQueue(CorePlayerQueue([srcA]));
       await Future<void>.delayed(Duration.zero);
       // setQueue holds queueLock; appendToQueue must park behind it.
       final appendFuture = player.appendToQueue(srcB);

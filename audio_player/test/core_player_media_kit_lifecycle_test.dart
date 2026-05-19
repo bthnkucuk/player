@@ -197,10 +197,9 @@ void main() {
       );
       debugSetLibmpvOptionsApplierForTest((player, options) async {});
 
-      final src = CorePlayerAudioSource(
+      final src = HttpAudioSource(
         title: 't',
-        url: 'https://example.com/a.mp3',
-      );
+        url: Uri.parse('https://example.com/a.mp3'));
       final p = CorePlayerMediaKit(
         testPlayer: mockPlayer,
         audioSource: src,
@@ -281,7 +280,7 @@ void main() {
         // letting it escape the test.
         expect(
           () => p.loadAndPlay(
-            CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+            HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
           ),
           throwsA(isA<PlayerDisposedFailure>()),
           reason: 'public mutators must throw once _disposed flips, even '
@@ -354,7 +353,7 @@ void main() {
         p.disposeSync();
 
         await expectLater(
-          p.load(CorePlayerAudioSource(title: 't', url: 'x')),
+          p.load(HttpAudioSource(title: 't', url: Uri.parse('x'))),
           throwsA(isA<PlayerDisposedFailure>()),
         );
         await expectLater(
@@ -465,10 +464,9 @@ void main() {
         );
         debugSetLibmpvOptionsApplierForTest((player, options) async {});
 
-        final src = CorePlayerAudioSource(
+        final src = HttpAudioSource(
           title: 't',
-          url: 'https://example.com/a.mp3',
-        );
+          url: Uri.parse('https://example.com/a.mp3'));
         final p = CorePlayerMediaKit(
           testPlayer: mockPlayer,
           audioSource: src,

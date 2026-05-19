@@ -232,10 +232,9 @@ void main() {
           final localH = _StreamHarness();
           _wireMockStreams(localPlayer, localStream, localState, localH);
 
-          final src = CorePlayerAudioSource(
+          final src = HttpAudioSource(
             title: 'auto',
-            url: 'https://example.com/a.mp3',
-          );
+            url: Uri.parse('https://example.com/a.mp3'));
           final p = CorePlayerMediaKit(
             testPlayer: localPlayer,
             audioSource: src,
@@ -262,10 +261,9 @@ void main() {
             () => localPlayer.open(any(), play: any(named: 'play')),
           ).thenThrow(Exception('open failed'));
 
-          final src = CorePlayerAudioSource(
+          final src = HttpAudioSource(
             title: 'auto',
-            url: 'https://example.com/bogus.mp3',
-          );
+            url: Uri.parse('https://example.com/bogus.mp3'));
           final p = CorePlayerMediaKit(
             testPlayer: localPlayer,
             audioSource: src,
@@ -357,7 +355,7 @@ void main() {
       // the remainder of the state machine is exercised.
       setUp(() async {
         await corePlayer.load(
-          CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+          HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
         );
       });
 
@@ -454,10 +452,9 @@ void main() {
       test(
         'opens URL Playlist (single-item) when url provided and resets needToLoad',
         () async {
-          final src = CorePlayerAudioSource(
+          final src = HttpAudioSource(
             title: 't',
-            url: 'https://example.com/a.mp3',
-          );
+            url: Uri.parse('https://example.com/a.mp3'));
           await corePlayer.load(src);
           // After Phase 11 the wrapper hands media_kit a one-element Playlist
           // instead of a bare Media, so [setQueue]/[load] always go through
@@ -473,7 +470,7 @@ void main() {
       test('opens File Playlist when filePath provided', () async {
         final tmp = File('${Directory.systemTemp.path}/test_audio.mp3');
         await tmp.writeAsBytes([0]);
-        final src = CorePlayerAudioSource(title: 't', filePath: tmp.path);
+        final src = FileAudioSource(title: 't', path: tmp.path);
         await corePlayer.load(src);
         verify(
           () => mockPlayer.open(any(that: isA<Playlist>()), play: false),
@@ -481,21 +478,16 @@ void main() {
         await tmp.delete();
       });
 
-      test(
-        'throws InvalidMediaSourceFailure when neither url nor file provided',
-        () async {
-          final src = CorePlayerAudioSource(title: 't');
-          await expectLater(
-            corePlayer.load(src),
-            throwsA(isA<InvalidMediaSourceFailure>()),
-          );
-        },
-      );
+      // Faz S1 removed this test: with the sealed CoreAudioSource hierarchy
+      // the "neither url nor filePath" state is unrepresentable at the
+      // type level. InvalidMediaSourceFailure now only fires for residual
+      // runtime malformedness (e.g. unsupported transport) introduced by
+      // future subtypes; no constructable case exists today.
 
       test('throws PlayerDisposedFailure when player disposed', () async {
         await corePlayer.dispose();
         await expectLater(
-          corePlayer.load(CorePlayerAudioSource(title: 't', url: 'x')),
+          corePlayer.load(HttpAudioSource(title: 't', url: Uri.parse('x'))),
           throwsA(isA<PlayerDisposedFailure>()),
         );
       });
@@ -504,10 +496,9 @@ void main() {
         when(
           () => mockPlayer.open(any(), play: any(named: 'play')),
         ).thenThrow(Exception('open failed'));
-        final src = CorePlayerAudioSource(
+        final src = HttpAudioSource(
           title: 't',
-          url: 'https://example.com/bogus.mp3',
-        );
+          url: Uri.parse('https://example.com/bogus.mp3'));
         await expectLater(
           corePlayer.load(src),
           throwsA(
@@ -521,11 +512,10 @@ void main() {
       });
 
       test('passes httpHeaders through to Media inside the Playlist', () async {
-        final src = CorePlayerAudioSource(
+        final src = HttpAudioSource(
           title: 't',
-          url: 'https://example.com/a.mp3',
-          httpHeaders: const {'Authorization': 'Bearer x'},
-        );
+          url: Uri.parse('https://example.com/a.mp3'),
+          headers: const {'Authorization': 'Bearer x'});
         await corePlayer.load(src);
         // The headers ride along inside the Playlist's single Media; the
         // exact map propagation is covered by Media's own equality checks.
@@ -557,7 +547,7 @@ void main() {
       );
 
       test('throws PlayerDisposedFailure when disposed', () async {
-        await corePlayer.load(CorePlayerAudioSource(title: 't', url: 'x'));
+        await corePlayer.load(HttpAudioSource(title: 't', url: Uri.parse('x')));
         await corePlayer.dispose();
         await expectLater(
           corePlayer.play(),
@@ -566,10 +556,9 @@ void main() {
       });
 
       test('reloads when needToLoad is true then plays', () async {
-        final src = CorePlayerAudioSource(
+        final src = HttpAudioSource(
           title: 't',
-          url: 'https://example.com/a.mp3',
-        );
+          url: Uri.parse('https://example.com/a.mp3'));
         await corePlayer.load(src);
         expect(corePlayer.needToLoad, isFalse);
 
@@ -581,10 +570,9 @@ void main() {
       });
 
       test('seeks to position when provided', () async {
-        final src = CorePlayerAudioSource(
+        final src = HttpAudioSource(
           title: 't',
-          url: 'https://example.com/a.mp3',
-        );
+          url: Uri.parse('https://example.com/a.mp3'));
         await corePlayer.load(src);
         await corePlayer.play(position: const Duration(seconds: 12));
         verify(() => mockPlayer.seek(const Duration(seconds: 12))).called(1);
@@ -592,10 +580,9 @@ void main() {
       });
 
       test('does not seek when position is null', () async {
-        final src = CorePlayerAudioSource(
+        final src = HttpAudioSource(
           title: 't',
-          url: 'https://example.com/a.mp3',
-        );
+          url: Uri.parse('https://example.com/a.mp3'));
         await corePlayer.load(src);
         await corePlayer.play();
         verifyNever(() => mockPlayer.seek(any()));
@@ -814,7 +801,7 @@ void main() {
         final sub = corePlayer.errorStream.listen(emitted.add);
 
         await corePlayer.load(
-          CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+          HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
         );
         await Future<void>.delayed(const Duration(milliseconds: 10));
 
@@ -963,10 +950,9 @@ void main() {
           when(
             () => mockPlayer.open(any(), play: any(named: 'play')),
           ).thenThrow(Exception('boom'));
-          final src = CorePlayerAudioSource(
+          final src = HttpAudioSource(
             title: 't',
-            url: 'https://example.com/a.mp3',
-          );
+            url: Uri.parse('https://example.com/a.mp3'));
           await expectLater(corePlayer.load(src), throwsA(isA<LoadFailure>()));
           verify(() => mockPlayer.open(any(), play: false)).called(1);
         },
@@ -989,10 +975,9 @@ void main() {
             if (calls < 3) throw Exception('attempt $calls failed');
           });
 
-          final src = CorePlayerAudioSource(
+          final src = HttpAudioSource(
             title: 't',
-            url: 'https://example.com/a.mp3',
-          );
+            url: Uri.parse('https://example.com/a.mp3'));
           await corePlayer.load(src);
 
           verify(() => mockPlayer.open(any(), play: false)).called(3);
@@ -1012,10 +997,9 @@ void main() {
           when(
             () => mockPlayer.open(any(), play: any(named: 'play')),
           ).thenThrow(Exception('always'));
-          final src = CorePlayerAudioSource(
+          final src = HttpAudioSource(
             title: 't',
-            url: 'https://example.com/a.mp3',
-          );
+            url: Uri.parse('https://example.com/a.mp3'));
 
           await expectLater(corePlayer.load(src), throwsA(isA<LoadFailure>()));
 
@@ -1023,23 +1007,11 @@ void main() {
         },
       );
 
-      test(
-        'InvalidMediaSourceFailure is NOT retried (no url and no filePath)',
-        () async {
-          CorePlayerMediaKit.debugSetConfigurationForTest(
-            const CorePlayerConfiguration(
-              loadRetry: fastRetry,
-              internalPositionThrottle: Duration.zero,
-            ),
-          );
-          final src = CorePlayerAudioSource(title: 't');
-          await expectLater(
-            corePlayer.load(src),
-            throwsA(isA<InvalidMediaSourceFailure>()),
-          );
-          verifyNever(() => mockPlayer.open(any(), play: any(named: 'play')));
-        },
-      );
+      // Faz S1 removed this test: the sealed CoreAudioSource hierarchy makes
+      // "no url and no filePath" unrepresentable. The retry-aware
+      // InvalidMediaSourceFailure path is covered indirectly by the
+      // LoadFailure retry tests above; the failure type is reserved for
+      // future subtype malformedness.
     });
 
     group('waitForReady (Phase 9d #5)', () {
@@ -1047,7 +1019,7 @@ void main() {
         // Drive the state machine into ready via the playerState combineLatest5
         // by emitting buffer > position with an audioSource loaded.
         await corePlayer.load(
-          CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+          HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
         );
         h.buffer.add(const Duration(seconds: 10));
         h.position.add(Duration.zero);
@@ -1066,7 +1038,7 @@ void main() {
 
       test('awaits the transition to ready', () async {
         await corePlayer.load(
-          CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+          HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
         );
         // Initially not ready.
         expect(corePlayer.playerState, isNot(CorePlayerState.ready));
@@ -1086,7 +1058,7 @@ void main() {
 
       test('throws LoadFailure when state transitions to error', () async {
         await corePlayer.load(
-          CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+          HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
         );
         final future = corePlayer.waitForReady();
 
@@ -1123,7 +1095,7 @@ void main() {
 
       test('honors timeout', () async {
         await corePlayer.load(
-          CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+          HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
         );
         // Never push into ready — the wait should time out.
         await expectLater(
@@ -1248,7 +1220,7 @@ void main() {
           await Future<void>.delayed(Duration.zero);
 
           await p.load(
-            CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+            HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
           );
           expect(mockBridge.activateCallCount, 0);
 
@@ -1296,7 +1268,7 @@ void main() {
           await Future<void>.delayed(Duration.zero);
 
           await p.load(
-            CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+            HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
           );
           // Detach so the next attach inside play() is fresh (wasNew=true)
           // and the in-play `emitMediaItem` gate opens.
@@ -1353,7 +1325,7 @@ void main() {
             audioHandler: handler,
           );
           await p.load(
-            CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+            HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
           );
 
           // Now make the next attachPlayer call (inside play()) blow up.
@@ -1400,10 +1372,9 @@ void main() {
           });
 
           final p = CorePlayerMediaKit(testPlayer: localPlayer);
-          final src = CorePlayerAudioSource(
+          final src = HttpAudioSource(
             title: 't',
-            url: 'https://example.com/a.mp3',
-          );
+            url: Uri.parse('https://example.com/a.mp3'));
 
           final f1 = p.loadAndPlay(src);
           final f2 = p.loadAndPlay(src);
@@ -1440,14 +1411,12 @@ void main() {
         _wireMockStreams(localPlayer, localStream, localState, localH);
 
         final p = CorePlayerMediaKit(testPlayer: localPlayer);
-        final srcA = CorePlayerAudioSource(
+        final srcA = HttpAudioSource(
           title: 'A',
-          url: 'https://example.com/a.mp3',
-        );
-        final srcB = CorePlayerAudioSource(
+          url: Uri.parse('https://example.com/a.mp3'));
+        final srcB = HttpAudioSource(
           title: 'B',
-          url: 'https://example.com/b.mp3',
-        );
+          url: Uri.parse('https://example.com/b.mp3'));
 
         await p.loadAndPlay(srcA);
         await p.loadAndPlay(srcB);
@@ -1466,7 +1435,7 @@ void main() {
           await corePlayer.dispose();
           expect(
             () => corePlayer.loadAndPlay(
-              CorePlayerAudioSource(title: 't', url: 'x'),
+              HttpAudioSource(title: 't', url: Uri.parse('x')),
             ),
             throwsA(isA<PlayerDisposedFailure>()),
           );
@@ -1508,7 +1477,7 @@ void main() {
           });
 
           await p.load(
-            CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+            HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
           );
 
           // Counter on the internal pipeline = playerState emissions triggered
@@ -1605,10 +1574,9 @@ void main() {
       });
 
       test('onLoad fires with the audio source on load()', () async {
-        final src = CorePlayerAudioSource(
+        final src = HttpAudioSource(
           title: 'tagged',
-          url: 'https://example.com/a.mp3',
-        );
+          url: Uri.parse('https://example.com/a.mp3'));
         await corePlayer.load(src);
         expect(observer.calls, contains('onLoad:tagged'));
       });
@@ -1617,7 +1585,7 @@ void main() {
         'onError fires when _throwAndEmit runs (disposed-player path)',
         () async {
           await corePlayer.load(
-            CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+            HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
           );
           await corePlayer.dispose();
           observer.calls.clear();
@@ -1648,7 +1616,7 @@ void main() {
 
       test('onStateChange fires when state transitions', () async {
         await corePlayer.load(
-          CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'),
+          HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')),
         );
         observer.calls.clear();
 
@@ -1672,18 +1640,15 @@ void main() {
     });
 
     group('queue / setQueue / skipTo* (Phase 11)', () {
-      const srcA = CorePlayerAudioSource(
+      final srcA = HttpAudioSource(
         title: 'A',
-        url: 'https://example.com/a.mp3',
-      );
-      const srcB = CorePlayerAudioSource(
+        url: Uri.parse('https://example.com/a.mp3'));
+      final srcB = HttpAudioSource(
         title: 'B',
-        url: 'https://example.com/b.mp3',
-      );
-      const srcC = CorePlayerAudioSource(
+        url: Uri.parse('https://example.com/b.mp3'));
+      final srcC = HttpAudioSource(
         title: 'C',
-        url: 'https://example.com/c.mp3',
-      );
+        url: Uri.parse('https://example.com/c.mp3'));
 
       test('initial queue is empty and queueStream is seeded', () async {
         expect(corePlayer.queue.isEmpty, isTrue);
@@ -1694,7 +1659,7 @@ void main() {
       test(
         'setQueue opens a Playlist with all sources at the right index',
         () async {
-          const queue = CorePlayerQueue([srcA, srcB]);
+          final queue = CorePlayerQueue([srcA, srcB]);
           final emitted = <CorePlayerQueue>[];
           final sub = corePlayer.queueStream.listen(emitted.add);
 
@@ -1731,7 +1696,7 @@ void main() {
         'setQueue with non-zero currentIndex carries the index into the Playlist',
         () async {
           await corePlayer.setQueue(
-            const CorePlayerQueue([srcA, srcB, srcC], currentIndex: 2),
+            CorePlayerQueue([srcA, srcB, srcC], currentIndex: 2),
           );
           expect(corePlayer.queue.currentIndex, 2);
           expect(corePlayer.audioSource, srcC);
@@ -1763,7 +1728,7 @@ void main() {
 
       test('setQueue(empty) clears audioSource and stops the player', () async {
         // Pre-load something so stop() is observable as a behavior change.
-        await corePlayer.setQueue(const CorePlayerQueue([srcA]));
+        await corePlayer.setQueue(CorePlayerQueue([srcA]));
         clearInteractions(mockPlayer);
 
         await corePlayer.setQueue(const CorePlayerQueue.empty());
@@ -1788,7 +1753,7 @@ void main() {
       test('setQueue after dispose throws PlayerDisposedFailure', () async {
         await corePlayer.dispose();
         await expectLater(
-          corePlayer.setQueue(const CorePlayerQueue([srcA])),
+          corePlayer.setQueue(CorePlayerQueue([srcA])),
           throwsA(isA<PlayerDisposedFailure>()),
         );
       });
@@ -1796,7 +1761,7 @@ void main() {
       test(
         'skipToIndex forwards to player.jump and syncs index via playlist stream',
         () async {
-          const queue = CorePlayerQueue([srcA, srcB, srcC]);
+          final queue = CorePlayerQueue([srcA, srcB, srcC]);
           final observer = _RecordingObserver();
           CorePlayer.observer = observer;
           addTearDown(() => CorePlayer.observer = null);
@@ -1813,9 +1778,9 @@ void main() {
           // Simulate the resulting playlist emission from media_kit.
           h.playlist.add(
             Playlist([
-              Media(srcA.url!),
-              Media(srcB.url!),
-              Media(srcC.url!),
+              Media(srcA.url.toString()),
+              Media(srcB.url.toString()),
+              Media(srcC.url.toString()),
             ], index: 2),
           );
           await Future<void>.delayed(Duration.zero);
@@ -1827,7 +1792,7 @@ void main() {
       );
 
       test('skipToIndex(-1) throws QueueOutOfBoundsFailure', () async {
-        await corePlayer.setQueue(const CorePlayerQueue([srcA, srcB]));
+        await corePlayer.setQueue(CorePlayerQueue([srcA, srcB]));
         await expectLater(
           corePlayer.skipToIndex(-1),
           throwsA(isA<QueueOutOfBoundsFailure>()),
@@ -1836,7 +1801,7 @@ void main() {
       });
 
       test('skipToIndex(length) throws QueueOutOfBoundsFailure', () async {
-        await corePlayer.setQueue(const CorePlayerQueue([srcA, srcB]));
+        await corePlayer.setQueue(CorePlayerQueue([srcA, srcB]));
         await expectLater(
           corePlayer.skipToIndex(2),
           throwsA(isA<QueueOutOfBoundsFailure>()),
@@ -1855,15 +1820,15 @@ void main() {
       test(
         'skipToNext forwards to player.next; index updates via playlist stream',
         () async {
-          await corePlayer.setQueue(const CorePlayerQueue([srcA, srcB, srcC]));
+          await corePlayer.setQueue(CorePlayerQueue([srcA, srcB, srcC]));
           await corePlayer.skipToNext();
           verify(() => mockPlayer.next()).called(1);
           // media_kit emits the new playlist with the advanced index.
           h.playlist.add(
             Playlist([
-              Media(srcA.url!),
-              Media(srcB.url!),
-              Media(srcC.url!),
+              Media(srcA.url.toString()),
+              Media(srcB.url.toString()),
+              Media(srcC.url.toString()),
             ], index: 1),
           );
           await Future<void>.delayed(Duration.zero);
@@ -1876,7 +1841,7 @@ void main() {
         'skipToNext at last index with loopMode=off throws QueueOutOfBoundsFailure',
         () async {
           await corePlayer.setQueue(
-            const CorePlayerQueue([srcA, srcB], currentIndex: 1),
+            CorePlayerQueue([srcA, srcB], currentIndex: 1),
           );
           await expectLater(
             corePlayer.skipToNext(),
@@ -1891,13 +1856,13 @@ void main() {
         () async {
           await corePlayer.setLoopMode(CorePlayerLoopMode.all);
           await corePlayer.setQueue(
-            const CorePlayerQueue([srcA, srcB], currentIndex: 1),
+            CorePlayerQueue([srcA, srcB], currentIndex: 1),
           );
           await corePlayer.skipToNext();
           verify(() => mockPlayer.next()).called(1);
           // media_kit wraps the playlist index back to 0.
           h.playlist.add(
-            Playlist([Media(srcA.url!), Media(srcB.url!)], index: 0),
+            Playlist([Media(srcA.url.toString()), Media(srcB.url.toString())], index: 0),
           );
           await Future<void>.delayed(Duration.zero);
           expect(corePlayer.queue.currentIndex, 0);
@@ -1921,15 +1886,15 @@ void main() {
         'skipToPrevious forwards to player.previous; index updates via playlist stream',
         () async {
           await corePlayer.setQueue(
-            const CorePlayerQueue([srcA, srcB, srcC], currentIndex: 2),
+            CorePlayerQueue([srcA, srcB, srcC], currentIndex: 2),
           );
           await corePlayer.skipToPrevious();
           verify(() => mockPlayer.previous()).called(1);
           h.playlist.add(
             Playlist([
-              Media(srcA.url!),
-              Media(srcB.url!),
-              Media(srcC.url!),
+              Media(srcA.url.toString()),
+              Media(srcB.url.toString()),
+              Media(srcC.url.toString()),
             ], index: 1),
           );
           await Future<void>.delayed(Duration.zero);
@@ -1939,7 +1904,7 @@ void main() {
       );
 
       test('skipToPrevious at index 0 with loopMode=off throws', () async {
-        await corePlayer.setQueue(const CorePlayerQueue([srcA, srcB]));
+        await corePlayer.setQueue(CorePlayerQueue([srcA, srcB]));
         await expectLater(
           corePlayer.skipToPrevious(),
           throwsA(isA<QueueOutOfBoundsFailure>()),
@@ -1951,14 +1916,14 @@ void main() {
         'skipToPrevious at index 0 with loopMode=all forwards to player.previous',
         () async {
           await corePlayer.setLoopMode(CorePlayerLoopMode.all);
-          await corePlayer.setQueue(const CorePlayerQueue([srcA, srcB, srcC]));
+          await corePlayer.setQueue(CorePlayerQueue([srcA, srcB, srcC]));
           await corePlayer.skipToPrevious();
           verify(() => mockPlayer.previous()).called(1);
           h.playlist.add(
             Playlist([
-              Media(srcA.url!),
-              Media(srcB.url!),
-              Media(srcC.url!),
+              Media(srcA.url.toString()),
+              Media(srcB.url.toString()),
+              Media(srcC.url.toString()),
             ], index: 2),
           );
           await Future<void>.delayed(Duration.zero);
@@ -2006,23 +1971,20 @@ void main() {
     // the playlist subscription is the *only* path that writes the
     // observable queue value.
     group('single source of truth (Phase 12)', () {
-      const srcA = CorePlayerAudioSource(
+      final srcA = HttpAudioSource(
         title: 'A',
-        url: 'https://example.com/a.mp3',
-      );
-      const srcB = CorePlayerAudioSource(
+        url: Uri.parse('https://example.com/a.mp3'));
+      final srcB = HttpAudioSource(
         title: 'B',
-        url: 'https://example.com/b.mp3',
-      );
-      const srcC = CorePlayerAudioSource(
+        url: Uri.parse('https://example.com/b.mp3'));
+      final srcC = HttpAudioSource(
         title: 'C',
-        url: 'https://example.com/c.mp3',
-      );
+        url: Uri.parse('https://example.com/c.mp3'));
 
       test(
         'queue and queueStream.value always agree after each playlist emission',
         () async {
-          await corePlayer.setQueue(const CorePlayerQueue([srcA, srcB, srcC]));
+          await corePlayer.setQueue(CorePlayerQueue([srcA, srcB, srcC]));
           await Future<void>.delayed(Duration.zero);
           expect(corePlayer.queue, corePlayer.queueStream.value);
           expect(corePlayer.queue.currentIndex, 0);
@@ -2043,7 +2005,7 @@ void main() {
         'setQueue(empty) emits CorePlayerQueue.empty() exactly once via the empty path',
         () async {
           // Pre-load so the next setQueue(empty) is a real transition.
-          await corePlayer.setQueue(const CorePlayerQueue([srcA, srcB]));
+          await corePlayer.setQueue(CorePlayerQueue([srcA, srcB]));
           await Future<void>.delayed(Duration.zero);
 
           final emitted = <CorePlayerQueue>[];
@@ -2058,7 +2020,7 @@ void main() {
           expect(emitted, contains(const CorePlayerQueue.empty()));
           // After the empty transition, stale platform playlist emissions are
           // ignored — the guard in the playlist subscription discards them.
-          h.playlist.add(Playlist([Media(srcA.url!)], index: 0));
+          h.playlist.add(Playlist([Media(srcA.url.toString())], index: 0));
           await Future<void>.delayed(Duration.zero);
           expect(corePlayer.queue.isEmpty, isTrue);
 
@@ -2069,7 +2031,7 @@ void main() {
       test(
         'a stale platform playlist emission after setQueue(empty) is ignored',
         () async {
-          await corePlayer.setQueue(const CorePlayerQueue([srcA, srcB]));
+          await corePlayer.setQueue(CorePlayerQueue([srcA, srcB]));
           await Future<void>.delayed(Duration.zero);
           await corePlayer.setQueue(const CorePlayerQueue.empty());
           await Future<void>.delayed(Duration.zero);
@@ -2078,7 +2040,7 @@ void main() {
           // resurrect the queue — [_sources] is empty so the subscription
           // drops it.
           h.playlist.add(
-            Playlist([Media(srcA.url!), Media(srcB.url!)], index: 1),
+            Playlist([Media(srcA.url.toString()), Media(srcB.url.toString())], index: 1),
           );
           await Future<void>.delayed(Duration.zero);
 
@@ -2090,16 +2052,16 @@ void main() {
       test(
         'media_kit-emitted Playlist drives queue + audioSource (no setQueue write path)',
         () async {
-          await corePlayer.setQueue(const CorePlayerQueue([srcA, srcB, srcC]));
+          await corePlayer.setQueue(CorePlayerQueue([srcA, srcB, srcC]));
           await Future<void>.delayed(Duration.zero);
 
           // Simulate auto-advance: media_kit emits index=2 without any wrapper
           // method call. The queue surface tracks it.
           h.playlist.add(
             Playlist([
-              Media(srcA.url!),
-              Media(srcB.url!),
-              Media(srcC.url!),
+              Media(srcA.url.toString()),
+              Media(srcB.url.toString()),
+              Media(srcC.url.toString()),
             ], index: 2),
           );
           await Future<void>.delayed(Duration.zero);
@@ -2116,7 +2078,7 @@ void main() {
           // _sources is updated synchronously inside setQueue (before open()),
           // so bounds checks are immediately correct even if the projection
           // has not yet landed.
-          await corePlayer.setQueue(const CorePlayerQueue([srcA, srcB]));
+          await corePlayer.setQueue(CorePlayerQueue([srcA, srcB]));
           // Note: no Future.delayed — the bounds check must still accept 0..1
           // even before any playlist event has been observed.
           await corePlayer.skipToIndex(1);
@@ -2126,19 +2088,17 @@ void main() {
     });
 
     group('auto-advance via playlist stream (Phase 11)', () {
-      const srcA = CorePlayerAudioSource(
+      final srcA = HttpAudioSource(
         title: 'A',
-        url: 'https://example.com/a.mp3',
-      );
-      const srcB = CorePlayerAudioSource(
+        url: Uri.parse('https://example.com/a.mp3'));
+      final srcB = HttpAudioSource(
         title: 'B',
-        url: 'https://example.com/b.mp3',
-      );
+        url: Uri.parse('https://example.com/b.mp3'));
 
       test(
         'media_kit emitting a new playlist index syncs the wrapper queue and fires onLoad',
         () async {
-          await corePlayer.setQueue(const CorePlayerQueue([srcA, srcB]));
+          await corePlayer.setQueue(CorePlayerQueue([srcA, srcB]));
           final observer = _RecordingObserver();
           CorePlayer.observer = observer;
           addTearDown(() => CorePlayer.observer = null);
@@ -2146,7 +2106,7 @@ void main() {
           // After the initial open(), media_kit's PlaylistMode drives the
           // transition. We simulate the resulting playlist emission for index 1.
           h.playlist.add(
-            Playlist([Media(srcA.url!), Media(srcB.url!)], index: 1),
+            Playlist([Media(srcA.url.toString()), Media(srcB.url.toString())], index: 1),
           );
           await Future<void>.delayed(Duration.zero);
 
@@ -2159,12 +2119,12 @@ void main() {
       );
 
       test('playlist emission with same index is a no-op', () async {
-        await corePlayer.setQueue(const CorePlayerQueue([srcA, srcB]));
+        await corePlayer.setQueue(CorePlayerQueue([srcA, srcB]));
         final observer = _RecordingObserver();
         CorePlayer.observer = observer;
         addTearDown(() => CorePlayer.observer = null);
 
-        h.playlist.add(Playlist([Media(srcA.url!), Media(srcB.url!)]));
+        h.playlist.add(Playlist([Media(srcA.url.toString()), Media(srcB.url.toString())]));
         await Future<void>.delayed(Duration.zero);
 
         // Active source unchanged; no second onLoad.
@@ -2188,18 +2148,15 @@ void main() {
     });
 
     group('audioSourceStream / clearQueue (Phase 15)', () {
-      const srcA = CorePlayerAudioSource(
+      final srcA = HttpAudioSource(
         title: 'A',
-        url: 'https://example.com/a.mp3',
-      );
-      const srcB = CorePlayerAudioSource(
+        url: Uri.parse('https://example.com/a.mp3'));
+      final srcB = HttpAudioSource(
         title: 'B',
-        url: 'https://example.com/b.mp3',
-      );
-      const srcC = CorePlayerAudioSource(
+        url: Uri.parse('https://example.com/b.mp3'));
+      final srcC = HttpAudioSource(
         title: 'C',
-        url: 'https://example.com/c.mp3',
-      );
+        url: Uri.parse('https://example.com/c.mp3'));
 
       test(
         'audioSourceStream is seeded with null when no source is loaded',
@@ -2211,10 +2168,10 @@ void main() {
       test(
         'audioSourceStream emits the new source after setQueue(.single)',
         () async {
-          final emitted = <CorePlayerAudioSource?>[];
+          final emitted = <CoreAudioSource?>[];
           final sub = corePlayer.audioSourceStream.listen(emitted.add);
 
-          await corePlayer.setQueue(const CorePlayerQueue([srcA]));
+          await corePlayer.setQueue(CorePlayerQueue([srcA]));
           await Future<void>.delayed(Duration.zero);
 
           expect(emitted, contains(srcA));
@@ -2224,10 +2181,10 @@ void main() {
       );
 
       test('audioSourceStream emits null after setQueue(empty)', () async {
-        await corePlayer.setQueue(const CorePlayerQueue([srcA]));
+        await corePlayer.setQueue(CorePlayerQueue([srcA]));
         await Future<void>.delayed(Duration.zero);
 
-        final emitted = <CorePlayerAudioSource?>[];
+        final emitted = <CoreAudioSource?>[];
         final sub = corePlayer.audioSourceStream.listen(emitted.add);
         await Future<void>.delayed(Duration.zero);
         emitted.clear();
@@ -2241,7 +2198,7 @@ void main() {
       });
 
       test('audioSourceStream emits null after clearQueue()', () async {
-        await corePlayer.setQueue(const CorePlayerQueue([srcA]));
+        await corePlayer.setQueue(CorePlayerQueue([srcA]));
         await Future<void>.delayed(Duration.zero);
         expect(corePlayer.audioSourceStream.value, srcA);
 
@@ -2256,7 +2213,7 @@ void main() {
       test(
         'clearQueue() stops the player (delegates to setQueue(empty))',
         () async {
-          await corePlayer.setQueue(const CorePlayerQueue([srcA]));
+          await corePlayer.setQueue(CorePlayerQueue([srcA]));
           clearInteractions(mockPlayer);
 
           await corePlayer.clearQueue();
@@ -2268,10 +2225,10 @@ void main() {
       test(
         'audioSourceStream emits the new source after skipToIndex (playlist auto-emit)',
         () async {
-          await corePlayer.setQueue(const CorePlayerQueue([srcA, srcB, srcC]));
+          await corePlayer.setQueue(CorePlayerQueue([srcA, srcB, srcC]));
           await Future<void>.delayed(Duration.zero);
 
-          final emitted = <CorePlayerAudioSource?>[];
+          final emitted = <CoreAudioSource?>[];
           final sub = corePlayer.audioSourceStream.listen(emitted.add);
           await Future<void>.delayed(Duration.zero);
           emitted.clear();
@@ -2346,14 +2303,12 @@ void main() {
     });
 
     group('lock-screen skip events (Phase 11)', () {
-      const srcA = CorePlayerAudioSource(
+      final srcA = HttpAudioSource(
         title: 'A',
-        url: 'https://example.com/a.mp3',
-      );
-      const srcB = CorePlayerAudioSource(
+        url: Uri.parse('https://example.com/a.mp3'));
+      final srcB = HttpAudioSource(
         title: 'B',
-        url: 'https://example.com/b.mp3',
-      );
+        url: Uri.parse('https://example.com/b.mp3'));
 
       test(
         'SkipToNextEvent forwards to player.next when this is current player',
@@ -2370,7 +2325,7 @@ void main() {
             testPlayer: localPlayer,
             audioHandler: handler,
           );
-          await p.setQueue(const CorePlayerQueue([srcA, srcB]));
+          await p.setQueue(CorePlayerQueue([srcA, srcB]));
 
           handler.debugPostEvent(CoreAudioHandlerSkipToNextEvent());
           await Future<void>.delayed(const Duration(milliseconds: 30));
@@ -2397,7 +2352,7 @@ void main() {
             audioHandler: handler,
           );
           await p.setQueue(
-            const CorePlayerQueue([srcA, srcB], currentIndex: 1),
+            CorePlayerQueue([srcA, srcB], currentIndex: 1),
           );
 
           handler.debugPostEvent(CoreAudioHandlerSkipToPreviousEvent());
@@ -2419,7 +2374,7 @@ class _RecordingObserver extends CorePlayerObserver {
   @override
   void onCreate(CorePlayer player) => calls.add('onCreate');
   @override
-  void onLoad(CorePlayer player, CorePlayerAudioSource source) =>
+  void onLoad(CorePlayer player, CoreAudioSource source) =>
       calls.add('onLoad:${source.title}');
   @override
   void onPlay(CorePlayer player) => calls.add('onPlay');

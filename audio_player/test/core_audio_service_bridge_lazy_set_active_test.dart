@@ -134,10 +134,9 @@ void main() {
       // calls play() internally, so we drive load() directly to model the
       // "loaded but not yet playing" UI state.)
       await player.load(
-        CorePlayerAudioSource(
+        HttpAudioSource(
           title: 't',
-          url: 'https://example.com/a.mp3',
-        ),
+          url: Uri.parse('https://example.com/a.mp3')),
       );
       expect(
         bridge.debugHasUserActivatedSession,

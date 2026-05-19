@@ -58,7 +58,7 @@ void main() {
         'reflects upstream value', () async {
       // Load a source so the `_audioSource == null` idle guard doesn't
       // short-circuit the state machine before the ready branch fires.
-      await player.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await player.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
 
       final f = bridge.playbackState
           .firstWhere((s) => s.processingState == AudioProcessingState.ready)
@@ -77,7 +77,7 @@ void main() {
     });
 
     test('completed=true upstream emits AudioProcessingState.completed downstream', () async {
-      await player.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await player.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
 
       final f = bridge.playbackState
           .firstWhere((s) => s.processingState == AudioProcessingState.completed)
@@ -95,7 +95,7 @@ void main() {
     });
 
     test('upstream error emits AudioProcessingState.error AND flips needToLoad=true', () async {
-      await player.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await player.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
 
       final f = bridge.playbackState
           .firstWhere((s) => s.processingState == AudioProcessingState.error)
@@ -112,7 +112,7 @@ void main() {
     });
 
     test('buffer <= position with no completion emits AudioProcessingState.loading', () async {
-      await player.load(CorePlayerAudioSource(title: 't', url: 'https://example.com/a.mp3'));
+      await player.load(HttpAudioSource(title: 't', url: Uri.parse('https://example.com/a.mp3')));
 
       final f = bridge.playbackState
           .firstWhere((s) => s.processingState == AudioProcessingState.loading)
@@ -173,23 +173,21 @@ void main() {
 
     test('load(audioSource) followed by play() pushes a MediaItem with the '
         'expected metadata onto bridge.mediaItem', () async {
-      final src = CorePlayerAudioSource(
+      final src = HttpAudioSource(
         title: 'Episode 1',
-        album: 'Pod',
         artist: 'Host',
-        genre: 'Tech',
-        url: 'https://example.com/ep1.mp3',
+        url: Uri.parse('https://example.com/ep1.mp3'),
       );
       await player.load(src);
       await player.play();
 
       final mi = bridge.mediaItem.value;
       expect(mi, isNotNull);
-      expect(mi!.id, src.url);
+      // MediaItem.id stores the URL as a String; the sealed source carries
+      // a Uri. Compare via toString().
+      expect(mi!.id, src.url.toString());
       expect(mi.title, 'Episode 1');
-      expect(mi.album, 'Pod');
       expect(mi.artist, 'Host');
-      expect(mi.genre, 'Tech');
     });
   });
 }
