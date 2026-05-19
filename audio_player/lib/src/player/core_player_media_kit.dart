@@ -15,6 +15,7 @@ import 'package:audio_player/src/player/core_player_media_kit_concurrency.dart';
 part 'core_player_media_kit_libmpv.dart';
 part 'core_player_media_kit_queue.dart';
 part 'core_player_media_kit_auto_radio.dart';
+part 'core_player_media_kit_mutation.dart';
 
 /// Position-restoration SLA for [CorePlayerMediaKit.replaceAt] when
 /// `preservePosition: true` is requested for the active index. Buffer-aware
@@ -23,7 +24,7 @@ part 'core_player_media_kit_auto_radio.dart';
 /// pin this constant as the documented tolerance.
 const Duration kReplacePreservePositionTolerance = Duration(milliseconds: 200);
 
-class CorePlayerMediaKit extends CorePlayer with CorePlayerMediaKitConcurrency {
+class CorePlayerMediaKit extends CorePlayer with CorePlayerMediaKitConcurrency, CorePlayerMediaKitMutation {
   /// Seeks within this distance of the start are snapped to zero
   /// (avoids triggering a buffer flush for cosmetic micro-seeks).
   static const Duration seekStartThreshold = Duration(milliseconds: 300);
