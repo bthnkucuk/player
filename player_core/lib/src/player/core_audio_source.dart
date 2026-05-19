@@ -48,12 +48,13 @@ sealed class CoreAudioSource extends Equatable {
   Map<String, Object?> toJson();
 
   /// Discriminator-driven dispatch. Unknown `type` values reject with
-  /// [SnapshotMalformedFailure]. Faz S2 and S3 extend this switch.
+  /// [SnapshotMalformedFailure]. Faz S3 extends this switch with `'live'`.
   factory CoreAudioSource.fromJson(Map<String, Object?> json) {
     final type = json[kCoreAudioSourceTypeKey];
     return switch (type) {
       'http' => HttpAudioSource.fromJson(json),
       'file' => FileAudioSource.fromJson(json),
+      'hls' => HlsAudioSource.fromJson(json),
       _ => throw SnapshotMalformedFailure(
         'Unknown CoreAudioSource type: $type',
       ),
@@ -183,6 +184,94 @@ final class FileAudioSource extends CoreAudioSource {
       artUri: artUriRaw is String ? Uri.parse(artUriRaw) : null,
       estimatedDuration:
           estimatedMs is int ? Duration(milliseconds: estimatedMs) : null,
+    );
+  }
+}
+
+/// HLS audio source. Plays an `.m3u8` manifest URL — libmpv handles
+/// rolling-manifest refresh and gapless segment transitions natively, so the
+/// wrapper doesn't need any segment-bookkeeping beyond what HTTP sources
+/// already do.
+///
+/// Use this for live radio, podcasts published via HLS, and any source where
+/// the upstream serves byte-range-friendly HLS over HTTP. Single-URI
+/// progressive HTTP audio stays on [HttpAudioSource]; pure segment-append
+/// scenarios (no upstream manifest) ship in Faz S3 as `LiveAudioSource`.
+///
+/// Kept as a peer of [HttpAudioSource] rather than a subclass: the sealed
+/// dispatch is per-transport (manifest vs progressive) so callers can pattern
+/// match exhaustively without runtime introspection.
+final class HlsAudioSource extends CoreAudioSource {
+  const HlsAudioSource({
+    required this.manifestUrl,
+    required super.title,
+    super.artist,
+    super.artUri,
+    super.estimatedDuration,
+    this.headers,
+  });
+
+  /// `.m3u8` manifest URL. libmpv detects the content-type and switches its
+  /// demuxer to HLS without extra configuration.
+  final Uri manifestUrl;
+
+  /// Optional HTTP headers (auth, geo-bypass tokens, …) forwarded verbatim
+  /// to libmpv's HTTP client when it fetches the manifest and its segments.
+  final Map<String, String>? headers;
+
+  @override
+  List<Object?> get props => [
+    manifestUrl,
+    title,
+    artist,
+    artUri,
+    estimatedDuration,
+    headers,
+  ];
+
+  @override
+  Map<String, Object?> toJson() => <String, Object?>{
+    kCoreAudioSourceTypeKey: 'hls',
+    'manifestUrl': manifestUrl.toString(),
+    'title': title,
+    if (artist != null) 'artist': artist,
+    if (artUri != null) 'artUri': artUri!.toString(),
+    if (estimatedDuration != null)
+      'estimatedMs': estimatedDuration!.inMilliseconds,
+    // Coerce to a fresh map so callers cannot mutate our internal state
+    // through the returned Map view (mirrors HttpAudioSource).
+    if (headers != null && headers!.isNotEmpty)
+      'headers': Map<String, String>.from(headers!),
+  };
+
+  factory HlsAudioSource.fromJson(Map<String, Object?> json) {
+    final manifestUrl = json['manifestUrl'];
+    if (manifestUrl is! String) {
+      throw const SnapshotMalformedFailure(
+        'HlsAudioSource missing "manifestUrl"',
+      );
+    }
+    final title = json['title'];
+    if (title is! String) {
+      throw const SnapshotMalformedFailure('HlsAudioSource missing "title"');
+    }
+    final artUriRaw = json['artUri'];
+    final estimatedMs = json['estimatedMs'];
+    final headersRaw = json['headers'];
+    Map<String, String>? typedHeaders;
+    if (headersRaw is Map) {
+      typedHeaders = headersRaw.map(
+        (k, v) => MapEntry(k.toString(), v.toString()),
+      );
+    }
+    return HlsAudioSource(
+      manifestUrl: Uri.parse(manifestUrl),
+      title: title,
+      artist: json['artist'] as String?,
+      artUri: artUriRaw is String ? Uri.parse(artUriRaw) : null,
+      estimatedDuration:
+          estimatedMs is int ? Duration(milliseconds: estimatedMs) : null,
+      headers: typedHeaders,
     );
   }
 }
