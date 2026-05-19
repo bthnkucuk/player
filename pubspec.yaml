@@ -1,0 +1,12 @@
+name: player_workspace
+publish_to: none
+
+environment:
+  sdk: ">=3.11.0 <4.0.0"
+
+workspace:
+  - player_core
+  - audio_player
+
+dev_dependencies:
+  patrol_mcp: ^0.1.3

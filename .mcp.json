@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "patrol": {
+      "command": "./.claude/run-patrol",
+      "env": {
+        "PROJECT_ROOT": ".",
+        "PATROL_FLAGS": "",
+        "SHOW_TERMINAL": "false"
+      }
+    },
+    "maestro": {
+      "command": "maestro",
+      "args": ["mcp"]
+    },
+    "dart": {
+      "command": "/opt/homebrew/bin/fvm",
+      "args": [
+        "dart", "mcp-server"
+      ]
+    }
+  }
+}

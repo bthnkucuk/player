@@ -1,0 +1,63 @@
+# Side-by-side comparison of two seek strategies on the same HTTP-streamed
+# MP3, on the same hardware, within the same app launch:
+#
+#   1. Timestamp seek to 1h  → `player.seek(Duration(hours: 1))`
+#      (the libavformat `mp3_seek` slow-path, observed ~31–35s on device)
+#   2. Byte-percent seek to 1h  → `player.command(['seek', pct, 'absolute-percent+keyframes'])`
+#      (the SEEK_FACTOR / AVSEEK_FLAG_BYTE workaround; expected sub-second)
+#
+# Strategy: tap (1), wait for completion, snapshot id:seek_result; then
+# tap (2), wait for completion, snapshot id:seek_result again. The flow
+# itself only asserts both reach SEEK COMPLETE; the latency comparison
+# is in the Semantics text Maestro reads off the screen.
+appId: com.example.audio_player_example
+tags:
+  - seek
+  - bug
+  - compare
+---
+- launchApp:
+    clearState: true
+- tapOn: "Raw media_kit \\(no wrapper\\).*"
+- extendedWaitUntil:
+    visible:
+      id: "tuning_status"
+      text: "ready"
+    timeout: 10000
+- tapOn: "Load"
+- extendedWaitUntil:
+    visible:
+      id: "load_status"
+      text: "loaded"
+    timeout: 30000
+- tapOn: "Play"
+- extendedWaitUntil:
+    visible:
+      id: "play_status"
+      text: "playing"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# --- Strategy 1: timestamp seek (the broken path) ---
+- tapOn:
+    text: "^Seek 1h$"
+- extendedWaitUntil:
+    visible:
+      id: "seek_result"
+      text: "SEEK COMPLETE.*"
+    timeout: 90000
+- takeScreenshot: raw_seek_compare_1_timestamp
+
+# Settle a few seconds so the next seek starts from a clean buffer/play state.
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# --- Strategy 2: byte-percent seek (the workaround) ---
+- tapOn: "⚡ Seek 1h FAST"
+- extendedWaitUntil:
+    visible:
+      id: "seek_result"
+      text: "SEEK COMPLETE.*"
+    timeout: 30000
+- takeScreenshot: raw_seek_compare_2_bytepct

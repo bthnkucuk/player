@@ -1,0 +1,60 @@
+# Reproduce the media_kit-level seek backfill bug WITHOUT the Player_core
+# wrapper in the path. Drives the "Raw media_kit (no wrapper)" demo, which
+# constructs media_kit.Player directly and applies the same tuning the
+# wrapper applies (cache-on-disk:no, hr-seek:no, fflags=+fastseek, etc).
+#
+# Reads results via Semantics identifiers wired into raw_media_kit.dart:
+#   - id: tuning_status   → "tuning..." → "ready"
+#   - id: load_status     → "not loaded" → "loading" → "loaded"
+#   - id: play_status     → "idle" → "playing" / "paused"
+#   - id: seek_result     → "(no seek yet)" → "SEEK PENDING …" → "SEEK COMPLETE — Xms …"
+#   - id: position_status → pos / buffer / buffering snapshot
+#   - id: log_panel       → full mpv debug log stream (scroll if needed)
+#
+# `launchApp: clearState: true` resets app data so each run starts cold —
+# no need to `adb uninstall` or rebuild between runs.
+appId: com.example.audio_player_example
+tags:
+  - seek
+  - bug
+---
+- launchApp:
+    clearState: true
+- tapOn: "Raw media_kit \\(no wrapper\\).*"
+- extendedWaitUntil:
+    visible:
+      id: "tuning_status"
+      text: "ready"
+    timeout: 10000
+- tapOn: "Load"
+- extendedWaitUntil:
+    visible:
+      id: "load_status"
+      text: "loaded"
+    timeout: 30000
+- tapOn: "Play"
+- extendedWaitUntil:
+    visible:
+      id: "play_status"
+      text: "playing"
+    timeout: 30000
+# Settle for 5 seconds of playback so the buffer is in a known state
+# before we trigger the seek.
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "Seek 1h"
+# Bug measurement: the milliseconds inside the id:seek_result Semantics
+# node are the real seek latency. First wait confirms the seek registered,
+# second waits for completion. Timeout is 90s — well above the 30s repro
+# window we've seen so far.
+- extendedWaitUntil:
+    visible:
+      id: "seek_result"
+      text: "SEEK PENDING.*"
+    timeout: 5000
+- extendedWaitUntil:
+    visible:
+      id: "seek_result"
+      text: "SEEK COMPLETE.*"
+    timeout: 90000
+- takeScreenshot: raw_seek_1h_complete

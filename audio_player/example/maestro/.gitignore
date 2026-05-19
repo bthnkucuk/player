@@ -1,0 +1,9 @@
+# Maestro writes takeScreenshot output to CWD by default. Keep one
+# checked-in reference image per flow under screenshots/; ignore any
+# stray PNGs left at the maestro/ root or anywhere else.
+*.png
+!screenshots/*.png
+
+# Local Maestro run logs (~/.maestro stores the canonical copy)
+.maestro/
+*.log

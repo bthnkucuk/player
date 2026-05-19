@@ -1,0 +1,70 @@
+name: audio_player_example
+description: "Demonstrates the player_core wrapper with the media_kit-based implementation."
+publish_to: 'none'
+version: 0.8.6
+
+environment:
+  sdk: ">=3.11.0 <4.0.0"
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  player_core:
+    path: ../../player_core
+  audio_player:
+    path: ..
+  # Explicit dep so the "Raw media_kit (no wrapper)" demo can `import
+  # 'package:media_kit/media_kit.dart'`. Resolves to the upstream main
+  # ref via the dependency_overrides block below — same source as
+  # audio_player's transitive media_kit dep.
+  media_kit:
+    git:
+      url: https://github.com/media-kit/media-kit.git
+      path: media_kit
+      ref: main
+  cupertino_icons: ^1.0.6
+  # Talker is wired to CorePlayerConfiguration.logCallback so the Debug Logs
+  # demo can show the live bridge log stream. Version matches the rest of
+  talker_flutter: ^5.1.17
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  # integration_test ships with the Flutter SDK and is required to run
+  # `integration_test/*.dart` tests (e.g. seek_performance_test.dart) on a
+  # real device or emulator. Test-only dep; not pulled into release builds.
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  patrol: ^4.5.0
+
+# Force both player_core/audio_player packages to resolve via path. Without these overrides,
+# pub sees `audio_player/pubspec.yaml`'s hosted `player_core: ^0.8.4`
+# constraint and reports a path-vs-hosted conflict against this example's
+# direct path dep on player_core. Required because the example is NOT part of
+# the workspace.
+dependency_overrides:
+  player_core:
+    path: ../../player_core
+  audio_player:
+    path: ..
+  # player_core's pubspec pins `meta: ^1.18.2`, but flutter_test from the
+  # Flutter SDK ships with meta 1.17.0. Workspace members bypass this via
+  # the shared resolution; standalone examples don't, so we override here.
+  # This is a repo-wide pre-existing inconsistency, not specific to the example.
+  meta: any
+  # Force media_kit to resolve from the same upstream main ref that
+  # audio_player uses. Without this override pub sees
+  # audio_player (via path) wanting media_kit from git and this
+  # pubspec implicitly wanting it from hosted via transitive deps and
+  # refuses to resolve. Keep in sync with `audio_player/pubspec.yaml`'s
+  # media_kit block.
+  media_kit:
+    git:
+      url: https://github.com/media-kit/media-kit.git
+      path: media_kit
+      ref: main
+
+flutter:
+  uses-material-design: true

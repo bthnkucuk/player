@@ -1,0 +1,97 @@
+#!/usr/bin/env sh
+# Launch patrol_mcp for Claude Code's MCP host.
+#
+# Why this script is more than `fvm dart run patrol_mcp`:
+# Claude Code's MCP startup has a ~10–15s timeout. A cold `fvm dart run patrol_mcp`
+# takes ~26s (fvm overhead + pub resolution + JIT warm-up), which races the timeout
+# and shows up as `✗ Failed to connect` in `claude mcp list`. To stay well under
+# that budget, we prefer launching the precompiled patrol_mcp snapshot directly
+# via the FVM-managed dart binary (typical cold start: <1s). We fall back to
+# `fvm dart run patrol_mcp` if no snapshot is found (first run, post-clean), and
+# the resulting snapshot becomes available for the next launch.
+#
+# Public interface (do not break — referenced from .mcp.json):
+#   PROJECT_ROOT     working directory to cd into (default: ".")
+#   PATROL_FLAGS     extra flags appended to the patrol_mcp invocation
+#   SHOW_TERMINAL    if "true" on macOS, surface stderr (currently informational only)
+
+set -e
+
+# Claude Code may launch MCP servers with a minimal PATH that excludes
+# /opt/homebrew/bin (where fvm lives on Apple Silicon homebrew installs).
+# Prepend it so `fvm`/`dart` resolve regardless of caller environment.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+cd "${PROJECT_ROOT:-.}"
+export PROJECT_ROOT=$PWD
+
+# Default Flutter command for patrol_mcp tools that shell out to flutter.
+if command -v fvm >/dev/null 2>&1; then
+  export PATROL_FLUTTER_COMMAND="${PATROL_FLUTTER_COMMAND:-fvm flutter}"
+else
+  export PATROL_FLUTTER_COMMAND="${PATROL_FLUTTER_COMMAND:-flutter}"
+fi
+
+# 1) Look for a precompiled patrol_mcp snapshot under common monorepo locations.
+#    The snapshot name embeds the Dart SDK version (e.g. patrol_mcp.dart-3.11.5.snapshot),
+#    so we glob to remain robust across SDK bumps.
+find_snapshot() {
+  # Search in priority order: workspace root, audio_player/example, current dir.
+  # patrol_mcp is a workspace-root dev_dep (so its snapshot ends up in the
+  # root .dart_tool); the example path is a fallback for setups where patrol_mcp
+  # is installed alongside patrol in the example app instead.
+  for root in "$PROJECT_ROOT" "$PROJECT_ROOT/audio_player/example" "$PWD"; do
+    snap=$(ls "$root"/.dart_tool/pub/bin/patrol_mcp/patrol_mcp.dart-*.snapshot 2>/dev/null | head -1)
+    if [ -n "$snap" ] && [ -f "$snap" ]; then
+      printf '%s\n' "$snap"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# 2) Find the dart binary FVM is using for this project (matches the snapshot's SDK).
+find_fvm_dart() {
+  # Read .fvmrc directly (fast, avoids cold `fvm exec` overhead).
+  if [ -f "$PROJECT_ROOT/.fvmrc" ]; then
+    ver=$(sed -n 's/.*"flutter"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$PROJECT_ROOT/.fvmrc" | head -1)
+    candidate="$HOME/fvm/versions/$ver/bin/cache/dart-sdk/bin/dart"
+    if [ -x "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  fi
+  # Fall back to fvm-managed dart via `fvm exec` (slower cold path).
+  if command -v fvm >/dev/null 2>&1; then
+    fvm_dart=$(fvm exec which dart 2>/dev/null | tail -1)
+    if [ -n "$fvm_dart" ] && [ -x "$fvm_dart" ]; then
+      printf '%s\n' "$fvm_dart"
+      return 0
+    fi
+  fi
+  if command -v dart >/dev/null 2>&1; then
+    command -v dart
+    return 0
+  fi
+  return 1
+}
+
+SNAPSHOT=$(find_snapshot || true)
+DART_BIN=$(find_fvm_dart || true)
+
+if [ -n "$SNAPSHOT" ] && [ -n "$DART_BIN" ]; then
+  # Fast path: precompiled snapshot, no pub resolution, no fvm dispatch overhead.
+  # shellcheck disable=SC2086
+  exec "$DART_BIN" "$SNAPSHOT" $PATROL_FLAGS
+fi
+
+# Slow path (no snapshot found yet): use `fvm dart run` so the snapshot is built
+# as a side-effect, making the next launch fast. May exceed Claude Code's MCP
+# startup timeout the very first time; subsequent restarts will use the snapshot.
+if command -v fvm >/dev/null 2>&1; then
+  # shellcheck disable=SC2086
+  exec fvm dart run patrol_mcp $PATROL_FLAGS
+else
+  # shellcheck disable=SC2086
+  exec dart run patrol_mcp $PATROL_FLAGS
+fi
