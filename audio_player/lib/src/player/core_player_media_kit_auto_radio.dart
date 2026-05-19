@@ -34,8 +34,13 @@ extension _CorePlayerMediaKitAutoRadio on CorePlayerMediaKit {
     // Loop modes auto-advance / wrap at the media_kit layer, so we'd
     // never see a "real" end-of-queue when looping. Defensive guard.
     if (loopMode != CorePlayerLoopMode.off) return;
-    final playlistState = player.state.playlist;
-    final activeIndex = playlistState.index;
+    // Source of truth for the active index is the wrapper-projected
+    // [_queueStreamBacking], kept in sync via the playlist subscription.
+    // Reading from `player.state.playlist` here would re-cross the FFI
+    // and (in tests) break callers that mock streams but not state.
+    final activeIndex = _queueStreamBacking.hasValue
+        ? _queueStreamBacking.value.currentIndex
+        : -1;
     if (activeIndex != _sources.length - 1) return;
 
     _queueExhaustedHandled = true;
