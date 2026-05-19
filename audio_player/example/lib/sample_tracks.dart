@@ -60,6 +60,35 @@ class SampleTracks {
     artUri: Uri.parse('https://picsum.photos/seed/soundhelix-3/600/600'),
   );
 
+  static final CoreAudioSource soundHelix4 = HttpAudioSource(
+    title: 'SoundHelix Song 4',
+    artist: 'SoundHelix',
+    url: Uri.parse(
+      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+    ),
+    artUri: Uri.parse('https://picsum.photos/seed/soundhelix-4/600/600'),
+  );
+
+  static final CoreAudioSource soundHelix5 = HttpAudioSource(
+    title: 'SoundHelix Song 5',
+    artist: 'SoundHelix',
+    url: Uri.parse(
+      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
+    ),
+    artUri: Uri.parse('https://picsum.photos/seed/soundhelix-5/600/600'),
+  );
+
+  /// Bare URLs for demos that bring their own stream of segment URIs
+  /// (e.g. the live-source demo). Lower-level than [playlist] — exposed so
+  /// a demo can simulate a backend that emits segment URLs over time.
+  static final List<Uri> soundHelixUrls = <Uri>[
+    Uri.parse('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'),
+    Uri.parse('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'),
+    Uri.parse('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'),
+    Uri.parse('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3'),
+    Uri.parse('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3'),
+  ];
+
   /// Default queue for the playlist demo.
   static final List<CoreAudioSource> playlist = <CoreAudioSource>[
     scienceFridayEpisode,
