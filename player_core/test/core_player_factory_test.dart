@@ -82,6 +82,11 @@ class _FakeTuPlayer extends CorePlayer {
   @override
   ValueStream<bool> get playingStream => BehaviorSubject<bool>.seeded(false).stream;
   @override
+  ValueStream<CorePlayerPositionData> get positionDataStream =>
+      BehaviorSubject<CorePlayerPositionData>.seeded(
+        (position: Duration.zero, duration: Duration.zero),
+      ).stream;
+  @override
   CorePlayerState get playerState => CorePlayerState.idle;
   @override
   Duration get position => Duration.zero;
