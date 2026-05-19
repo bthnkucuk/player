@@ -91,7 +91,9 @@ class _QueueMutationDemoState extends State<QueueMutationDemo> {
                 FilledButton.icon(
                   onPressed: _loadQueue,
                   icon: const Icon(Icons.queue_music),
-                  label: Text(_queueLoaded ? 'Reload queue' : 'Load 4-track queue'),
+                  label: Text(
+                    _queueLoaded ? 'Reload queue' : 'Load 4-track queue',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 _NowPlaying(player: _player),
@@ -102,7 +104,8 @@ class _QueueMutationDemoState extends State<QueueMutationDemo> {
                   benchTrack: _benchTrack,
                   onInsertNext: () =>
                       _safe(() => _player.insertNext(_benchTrack)),
-                  onAppend: () => _safe(() => _player.appendToQueue(_benchTrack)),
+                  onAppend: () =>
+                      _safe(() => _player.appendToQueue(_benchTrack)),
                   onRemoveCurrent: () =>
                       _safe(() => _player.removeAt(queue.currentIndex)),
                   onReplaceCurrentPreserve: () => _safe(
@@ -379,75 +382,85 @@ class _QueueView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Bounded height + internal ListView so the queue scrolls independently
-    // — matches Faz H's pattern for nested-scrollable demos and avoids the
-    // outer ListView overflowing in tight viewports.
-    return SizedBox(
-      height: 240,
-      child: Card(
-        child: queue.isEmpty
-            ? const Center(child: Text('Queue is empty'))
-            : ReorderableListView.builder(
-                buildDefaultDragHandles: false,
-                itemCount: queue.length,
-                onReorder: (int oldIndex, int newIndex) {
-                  // Flutter's quirk: when dragging DOWN, `newIndex` is one
-                  // larger than the destination slot because it is computed
-                  // against the pre-removal list. Adjust before delegating
-                  // to `CorePlayer.moveItem`.
-                  final int adjusted = newIndex > oldIndex ? newIndex - 1 : newIndex;
-                  if (adjusted == oldIndex) return;
-                  // Fire-and-forget: the queueStream rebuild will reflect
-                  // the new order; errors are surfaced via errorStream.
-                  unawaited(onReorder(oldIndex, adjusted));
-                },
-                itemBuilder: (context, i) {
-                  final source = queue.sources[i];
-                  final isActive = i == queue.currentIndex;
-                  return ListTile(
-                    key: ValueKey<String>(
-                      'queue-row-${source.url ?? source.filePath ?? source.title}',
-                    ),
-                    leading: CircleAvatar(child: Text('$i')),
-                    title: Text(
-                      source.title,
-                      style: TextStyle(
-                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                    subtitle: Text(source.artist ?? source.url ?? ''),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        if (isActive)
-                          const Padding(
-                            padding: EdgeInsets.only(right: 4),
-                            child: Icon(Icons.graphic_eq, color: Colors.green),
-                          )
-                        else
-                          IconButton(
-                            icon: const Icon(Icons.play_arrow),
-                            onPressed: () async {
-                              try {
-                                await player.skipToIndex(i);
-                              } on CorePlayerFailure {
-                                // surfaced via errorStream
-                              }
-                            },
-                          ),
-                        ReorderableDragStartListener(
-                          index: i,
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Icon(Icons.drag_handle),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+    // Inner ReorderableListView shrink-wraps and delegates scrolling to the
+    // outer ListView. Drops the previous bounded-height + Card wrap: both
+    // made drag targets visually cramped and limited how much of the queue
+    // was visible at once, hurting reorder testability on a real device.
+    if (queue.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: Text('Queue is empty')),
+      );
+    }
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      itemCount: queue.length,
+      onReorder: (int oldIndex, int newIndex) {
+        // Flutter's quirk: when dragging DOWN, `newIndex` is one
+        // larger than the destination slot because it is computed
+        // against the pre-removal list. Adjust before delegating
+        // to `CorePlayer.moveItem`.
+        final int adjusted = newIndex > oldIndex ? newIndex - 1 : newIndex;
+        if (adjusted == oldIndex) return;
+        // Fire-and-forget: the queueStream rebuild will reflect
+        // the new order; errors are surfaced via errorStream.
+        unawaited(onReorder(oldIndex, adjusted));
+      },
+      itemBuilder: (context, i) {
+        final source = queue.sources[i];
+        final isActive = i == queue.currentIndex;
+        return ListTile(
+          // Keys must be unique even when the queue contains
+          // duplicate sources (e.g. after `insertNext(X)` followed
+          // by `replaceAt(0, X)` — two slots reference the same
+          // CorePlayerAudioSource instance, identical URLs). The
+          // index is the disambiguator; `identityHashCode` lets
+          // the framework distinguish a "replace" (new instance)
+          // from a "reorder" (same instance moved) at the same
+          // slot. Re-render animations are best-effort under this
+          // scheme — what matters is the absence of GlobalKey
+          // collisions during the swap.
+          key: ValueKey<String>('queue-row-$i-${identityHashCode(source)}'),
+          leading: CircleAvatar(child: Text('$i')),
+          title: Text(
+            source.title,
+            style: TextStyle(
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          subtitle: Text(source.artist ?? source.url ?? ''),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              if (isActive)
+                const Padding(
+                  padding: EdgeInsets.only(right: 4),
+                  child: Icon(Icons.graphic_eq, color: Colors.green),
+                )
+              else
+                IconButton(
+                  icon: const Icon(Icons.play_arrow),
+                  onPressed: () async {
+                    try {
+                      await player.skipToIndex(i);
+                    } on CorePlayerFailure {
+                      // surfaced via errorStream
+                    }
+                  },
+                ),
+              ReorderableDragStartListener(
+                index: i,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(Icons.drag_handle),
+                ),
               ),
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

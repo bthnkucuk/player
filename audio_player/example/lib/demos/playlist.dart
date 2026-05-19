@@ -205,8 +205,13 @@ class _PlaylistDemoState extends State<PlaylistDemo> {
                       final CorePlayerAudioSource source = queue[index];
                       final bool isCurrent = index == queue.currentIndex;
                       return ListTile(
+                        // See queue_mutation.dart for the rationale: url-only
+                        // keys collide when the queue contains duplicate
+                        // sources (a real possibility once any mutation API
+                        // can produce them). Index + identityHashCode keeps
+                        // each slot distinguishable.
                         key: ValueKey<String>(
-                          'playlist-row-${source.url ?? source.filePath ?? source.title}',
+                          'playlist-row-$index-${identityHashCode(source)}',
                         ),
                         leading: _TrackArtwork(artUri: source.artUri, size: 56, isCurrent: isCurrent, index: index),
                         title: Text(
