@@ -68,21 +68,17 @@ void _wireMockStreams(
   when(() => mockState.rate).thenReturn(1.0);
   when(() => mockState.volume).thenReturn(100.0);
 
-  Playlist? lastPlaylist;
   when(() => mockPlayer.open(any(), play: any(named: 'play'))).thenAnswer((
     inv,
   ) async {
     final playable = inv.positionalArguments[0];
     if (playable is Playlist) {
-      lastPlaylist = playable;
       h.playlist.add(playable);
     }
   });
   when(() => mockPlayer.play()).thenAnswer((_) async {});
   when(() => mockPlayer.pause()).thenAnswer((_) async {});
-  when(() => mockPlayer.stop()).thenAnswer((_) async {
-    lastPlaylist = null;
-  });
+  when(() => mockPlayer.stop()).thenAnswer((_) async {});
   when(() => mockPlayer.seek(any())).thenAnswer((_) async {});
   when(() => mockPlayer.setRate(any())).thenAnswer((_) async {});
   when(() => mockPlayer.setVolume(any())).thenAnswer((_) async {});

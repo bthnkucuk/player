@@ -10,6 +10,7 @@ import 'demos/hls.dart';
 import 'demos/live_audio_source.dart';
 import 'demos/raw_media_kit.dart';
 import 'demos/multi_scope.dart';
+import 'demos/network_policy.dart';
 import 'demos/observer.dart';
 import 'demos/playlist.dart';
 import 'demos/queue_mutation.dart';
@@ -163,6 +164,13 @@ class HomePage extends StatelessWidget {
       icon: Icons.stream,
       builder: _buildLiveAudioSource,
     ),
+    _Demo(
+      title: 'Network policy',
+      subtitle:
+          'push NetworkHint, observe configured pause/resume policy reactions',
+      icon: Icons.network_check,
+      builder: _buildNetworkPolicy,
+    ),
   ];
 
   static Widget _buildSingleTrack(BuildContext _) => const SingleTrackDemo();
@@ -180,6 +188,7 @@ class HomePage extends StatelessWidget {
   static Widget _buildHls(BuildContext _) => const HlsDemo();
   static Widget _buildLiveAudioSource(BuildContext _) =>
       const LiveAudioSourceDemo();
+  static Widget _buildNetworkPolicy(BuildContext _) => const NetworkPolicyDemo();
 
   @override
   Widget build(BuildContext context) {
