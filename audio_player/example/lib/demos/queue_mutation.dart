@@ -439,6 +439,8 @@ class _QueueView extends StatelessWidget {
                   HttpAudioSource(:final url) => url.toString(),
                   FileAudioSource(:final path) => path,
                   HlsAudioSource(:final manifestUrl) => manifestUrl.toString(),
+                  LiveAudioSource(:final initialUrl) =>
+                      initialUrl?.toString() ?? '(live segment stream)',
                 },
           ),
           trailing: Row(

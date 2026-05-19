@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:test/test.dart';
 import 'package:player_core/player_core.dart';
 
@@ -275,8 +277,81 @@ void main() {
         HttpAudioSource(:final url) => 'http:${url.toString()}',
         FileAudioSource(:final path) => 'file:$path',
         HlsAudioSource(:final manifestUrl) => 'hls:${manifestUrl.toString()}',
+        LiveAudioSource() => 'live',
       };
       expect(result, 'http:https://example.com/x.mp3');
+    });
+  });
+
+  group('LiveAudioSource', () {
+    test('constructs with stream + required title; optional fields default null', () {
+      final stream = const Stream<Uri>.empty();
+      final source = LiveAudioSource(
+        segmentUrlStream: stream,
+        title: 'Live segments',
+      );
+      expect(source.title, 'Live segments');
+      expect(source.segmentUrlStream, isA<Stream<Uri>>());
+      expect(source.headers, isNull);
+      expect(source.initialUrl, isNull);
+      expect(source.artist, isNull);
+      expect(source.estimatedDuration, isNull);
+    });
+
+    test('equality is identity-based on the segment stream', () {
+      // Two LiveAudioSource instances around the SAME stream object compare
+      // equal even though Stream itself doesn't define ==. The
+      // identityHashCode in props captures stream identity rather than
+      // attempting (impossible) value comparison.
+      final stream = const Stream<Uri>.empty();
+      final a = LiveAudioSource(segmentUrlStream: stream, title: 'T');
+      final b = LiveAudioSource(segmentUrlStream: stream, title: 'T');
+      expect(a, equals(b));
+      expect(a.hashCode, b.hashCode);
+    });
+
+    test('inequality across distinct stream identities', () {
+      // Broadcast controllers (vs single-subscription) so tearDown's
+      // close() does not hang waiting for a listener.
+      final c1 = StreamController<Uri>.broadcast();
+      final c2 = StreamController<Uri>.broadcast();
+      addTearDown(c1.close);
+      addTearDown(c2.close);
+      final a = LiveAudioSource(segmentUrlStream: c1.stream, title: 'T');
+      final b = LiveAudioSource(segmentUrlStream: c2.stream, title: 'T');
+      expect(a, isNot(equals(b)));
+    });
+
+    test('toJson throws UnsupportedError with a clear message', () {
+      final source = LiveAudioSource(
+        segmentUrlStream: const Stream<Uri>.empty(),
+        title: 'unrestorable',
+      );
+      expect(
+        source.toJson,
+        throwsA(
+          isA<UnsupportedError>().having(
+            (e) => e.message,
+            'message',
+            contains('cannot be serialized'),
+          ),
+        ),
+      );
+    });
+
+    test('initialUrl + headers are exposed on props', () {
+      final initial = Uri.parse('https://example.com/seed.mp3');
+      const headers = <String, String>{'Authorization': 'Bearer xyz'};
+      final source = LiveAudioSource(
+        segmentUrlStream: const Stream<Uri>.empty(),
+        title: 'with seed',
+        initialUrl: initial,
+        headers: headers,
+      );
+      // Props uses deep equality (via Equatable), so the values appear in
+      // the props list and are reachable for comparisons.
+      expect(source.props, contains(initial));
+      expect(source.props, contains(headers));
     });
   });
 }

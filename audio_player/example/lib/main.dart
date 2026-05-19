@@ -7,6 +7,7 @@ import 'demos/auto_radio_and_position_stream.dart';
 import 'demos/capabilities.dart';
 import 'demos/debug_logs.dart';
 import 'demos/hls.dart';
+import 'demos/live_audio_source.dart';
 import 'demos/raw_media_kit.dart';
 import 'demos/multi_scope.dart';
 import 'demos/observer.dart';
@@ -155,6 +156,13 @@ class HomePage extends StatelessWidget {
       icon: Icons.cell_tower,
       builder: _buildHls,
     ),
+    _Demo(
+      title: 'Live audio source',
+      subtitle:
+          'segments arrive over time; wrapper appends gaplessly as URLs emit',
+      icon: Icons.stream,
+      builder: _buildLiveAudioSource,
+    ),
   ];
 
   static Widget _buildSingleTrack(BuildContext _) => const SingleTrackDemo();
@@ -170,6 +178,8 @@ class HomePage extends StatelessWidget {
       const AutoRadioAndPositionStreamDemo();
   static Widget _buildCapabilities(BuildContext _) => const CapabilitiesDemo();
   static Widget _buildHls(BuildContext _) => const HlsDemo();
+  static Widget _buildLiveAudioSource(BuildContext _) =>
+      const LiveAudioSourceDemo();
 
   @override
   Widget build(BuildContext context) {

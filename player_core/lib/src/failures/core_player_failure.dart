@@ -87,3 +87,18 @@ final class SnapshotSchemaMismatchFailure extends CorePlayerFailure {
 final class SnapshotMalformedFailure extends CorePlayerFailure {
   const SnapshotMalformedFailure(super.message);
 }
+
+/// Thrown by the wrapper when a `LiveAudioSource` is opened with neither an
+/// `initialUrl` seed NOR a pre-buffered first segment available at the
+/// moment the engine needs to start playback. A live source can either:
+///   (a) carry an `initialUrl` so the engine has something to open
+///       immediately, while the segment stream pushes follow-ups, or
+///   (b) be queued behind a non-live source so the engine has already
+///       started playback by the time the live source becomes active.
+///
+/// Hitting this failure means neither path was taken — the active queue
+/// position landed on a live source whose stream has not yet emitted and
+/// whose `initialUrl` is null.
+final class LiveSourceNotReadyFailure extends CorePlayerFailure {
+  const LiveSourceNotReadyFailure(super.message);
+}

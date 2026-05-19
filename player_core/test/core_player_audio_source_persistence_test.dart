@@ -74,6 +74,27 @@ void main() {
       );
     });
 
+    test('rejects the "live" discriminator with a dedicated error message', () {
+      // LiveAudioSource is process-local — the snapshot path explicitly
+      // refuses to resurrect it (see LiveAudioSource.toJson). The "live"
+      // arm of fromJson is here for symmetry so a queue snapshot that
+      // somehow carries a live entry fails with a clear, named reason
+      // rather than the generic "unknown type" branch.
+      expect(
+        () => CoreAudioSource.fromJson(<String, Object?>{
+          'type': 'live',
+          'title': 'Live segments',
+        }),
+        throwsA(
+          isA<SnapshotMalformedFailure>().having(
+            (f) => f.message,
+            'message',
+            contains('LiveAudioSource'),
+          ),
+        ),
+      );
+    });
+
     test('rejects HttpAudioSource missing required title', () {
       expect(
         () => CoreAudioSource.fromJson(<String, Object?>{
@@ -227,6 +248,7 @@ void main() {
         HttpAudioSource() => 'http',
         FileAudioSource() => 'file',
         HlsAudioSource() => 'hls',
+        LiveAudioSource() => 'live',
       };
       expect(kind, 'http');
     });

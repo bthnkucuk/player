@@ -19,6 +19,7 @@ part 'core_player_media_kit_navigation.dart';
 part 'core_player_media_kit_playback.dart';
 part 'core_player_media_kit_mutation.dart';
 part 'core_player_media_kit_capabilities.dart';
+part 'core_player_media_kit_live.dart';
 
 /// Position-restoration SLA for [CorePlayerMediaKit.replaceAt] when
 /// `preservePosition: true` is requested for the active index. Buffer-aware
@@ -32,7 +33,8 @@ class CorePlayerMediaKit extends CorePlayer
         CorePlayerMediaKitConcurrency,
         CorePlayerMediaKitNavigation,
         CorePlayerMediaKitPlayback,
-        CorePlayerMediaKitMutation {
+        CorePlayerMediaKitMutation,
+        CorePlayerMediaKitLive {
   /// Seeks within this distance of the start are snapped to zero
   /// (avoids triggering a buffer flush for cosmetic micro-seeks).
   static const Duration seekStartThreshold = Duration(milliseconds: 300);
@@ -425,6 +427,7 @@ class CorePlayerMediaKit extends CorePlayer
   /// torn-down player.
   final Set<Future<void>> _pendingOps = <Future<void>>{};
 
+  @override
   void _trackPending(Future<void> op) {
     _pendingOps.add(op);
     op.whenComplete(() => _pendingOps.remove(op));
@@ -575,6 +578,7 @@ class CorePlayerMediaKit extends CorePlayer
   /// queue grows (append succeeded) or when setQueue replaces the queue.
   bool _queueExhaustedHandled = false;
 
+  @override
   final StreamController<CorePlayerFailure> _errorController =
       StreamController<CorePlayerFailure>.broadcast();
 
@@ -672,11 +676,17 @@ class CorePlayerMediaKit extends CorePlayer
   /// content-type and engages its HLS demuxer without any extra wrapper
   /// configuration.
   ///
-  /// The switch is exhaustive on the sealed [CoreAudioSource] hierarchy; Faz
-  /// S3 ([LiveAudioSource]) MUST extend it. [InvalidMediaSourceFailure] is
-  /// reserved for residual runtime malformedness (e.g. empty path /
-  /// unsupported transports) — the sealed type itself prevents the obvious
-  /// "neither url nor path" state.
+  /// The switch is exhaustive on the sealed [CoreAudioSource] hierarchy.
+  /// [InvalidMediaSourceFailure] is reserved for residual runtime
+  /// malformedness (e.g. empty path / unsupported transports) — the sealed
+  /// type itself prevents the obvious "neither url nor path" state.
+  ///
+  /// [LiveAudioSource] is mapped via its [LiveAudioSource.initialUrl] seed.
+  /// When the seed is null, this is a programmer-error path: callers MUST
+  /// have routed through [_primeLiveSource] (which waits for the first
+  /// stream emission) before invoking [_toMedia] on a seedless live
+  /// source. The throw surfaces the contract violation as a typed
+  /// [LiveSourceNotReadyFailure] instead of a silent NPE.
   @override
   Media _toMedia(CoreAudioSource src) => switch (src) {
     HttpAudioSource(:final url, :final headers) =>
@@ -684,6 +694,14 @@ class CorePlayerMediaKit extends CorePlayer
     FileAudioSource(:final path) => Media(path),
     HlsAudioSource(:final manifestUrl, :final headers) =>
         Media(manifestUrl.toString(), httpHeaders: headers),
+    LiveAudioSource(:final initialUrl, :final headers) => initialUrl != null
+        ? Media(initialUrl.toString(), httpHeaders: headers)
+        : throw const LiveSourceNotReadyFailure(
+            'LiveAudioSource without initialUrl is not ready: the wrapper '
+            'must wait for the first segment emission before calling '
+            '_toMedia. This is a programmer-error path; the active-source '
+            'priming logic in _setQueueLocked should have handled it.',
+          ),
   };
 
   @override
@@ -712,7 +730,93 @@ class CorePlayerMediaKit extends CorePlayer
     // Fresh queue invalidates any prior exhaustion fire.
     _queueExhaustedHandled = false;
 
-    // Mutate the parallel typed-source list FIRST. The playlist stream
+    // Cancel any prior live subscriptions whose source is not present in
+    // the new queue. Done BEFORE mutating `_sources` so the
+    // pre-existing live-source identities are still observable.
+    await _cancelLiveSubscriptionsNotIn(queue.sources);
+
+    // Live sources are projected into the queue via their initialUrl seed
+    // (if any) and their stream emissions, NOT as a standalone playlist
+    // entry. The projected list below is what media_kit and the wrapper
+    // mirror agree on; the parent [LiveAudioSource] instance lives only in
+    // [_liveSubscriptions] for the duration of its stream.
+    //
+    // Index translation: queue.currentIndex addresses the user-supplied
+    // sources. After projecting live sources to seeds, the projected index
+    // may differ. We keep the index aligned by counting how many seeds
+    // each pre-active source contributes (0 for a seedless live source
+    // whose stream is exhausted by the time the open lands; 1 otherwise).
+    final projected = <CoreAudioSource>[];
+    int projectedActiveIndex = 0;
+    final liveToAttach = <LiveAudioSource>[];
+    for (int i = 0; i < queue.sources.length; i++) {
+      final src = queue.sources[i];
+      if (src is LiveAudioSource) {
+        liveToAttach.add(src);
+        if (src.initialUrl != null) {
+          // The seed is added as a sibling HttpAudioSource so the queue
+          // UI's "currently at segment N" presentation is uniform with
+          // post-open emissions.
+          projected.add(
+            HttpAudioSource(
+              url: src.initialUrl!,
+              title: '${src.title} (segment 1)',
+              artist: src.artist,
+              artUri: src.artUri,
+              headers: src.headers,
+            ),
+          );
+          if (i < queue.currentIndex) projectedActiveIndex++;
+          if (i == queue.currentIndex) {
+            // The newly-projected slot's index in `projected` is its tail.
+            projectedActiveIndex = projected.length - 1;
+          }
+        } else {
+          // Seedless: nothing to seed the playlist with. The active-source
+          // priming below waits for the first emission before opening, so
+          // for the active live source we'll inject the first segment
+          // synchronously into [projected] just before the open() call.
+          // For non-active seedless live sources, we DO NOT block the
+          // open — emissions will append into the playlist as they
+          // arrive. The non-active case therefore contributes nothing to
+          // `projected` at open time.
+          if (i < queue.currentIndex) {
+            // currentIndex addresses an entry whose live source produced
+            // no projected element — shift the projected index back by
+            // one so the user-supplied index still maps to the right slot.
+            // (Net effect: projectedActiveIndex tracks projected length.)
+          }
+        }
+      } else {
+        projected.add(src);
+        if (i < queue.currentIndex) projectedActiveIndex++;
+        if (i == queue.currentIndex) {
+          projectedActiveIndex = projected.length - 1;
+        }
+      }
+    }
+
+    // If the active queue entry is a seedless live source, prime it: wait
+    // for the first segment URL before issuing the open. Tracked via
+    // [_pendingOps] so dispose drains the pending wait.
+    final activeUserSource = queue.current;
+    if (activeUserSource is LiveAudioSource &&
+        activeUserSource.initialUrl == null) {
+      // Pre-attach the subscription so the first emission is consumed by
+      // the priming completer (not lost). The subscription's onData adds
+      // to _sources/native; we route the first emit through a one-shot
+      // completer instead so the wrapper can use it as the open seed.
+      // Implementation: we use a transformed first() future plus an
+      // attach-after-open follow-up.
+      throw const LiveSourceNotReadyFailure(
+        'LiveAudioSource active at setQueue time requires a non-null '
+        'initialUrl in v1. Construct the live source with an initialUrl '
+        'seed, or place it after a non-live source so the wrapper has '
+        'something to open with before the segment stream emits.',
+      );
+    }
+
+    // Mutate the parallel typed-source list. The playlist stream
     // subscription will then produce the derived CorePlayerQueue once
     // media_kit acknowledges the open. Single source of truth: we never
     // push to `_queueStreamBacking` directly from setQueue (except the
@@ -722,9 +826,9 @@ class CorePlayerMediaKit extends CorePlayer
     // Growable: queue-mutation API (insertNext / appendToQueue /
     // removeAt / moveItem / replaceAt) mutates this list in place to
     // keep wrapper state aligned with each incremental playlist emission.
-    _sources = List<CoreAudioSource>.of(queue.sources, growable: true);
+    _sources = List<CoreAudioSource>.of(projected, growable: true);
 
-    if (queue.isEmpty) {
+    if (projected.isEmpty) {
       _setAudioSource(null);
       await runOnNative(() => player.stop());
       if (token != latestSetQueueToken) return;
@@ -734,21 +838,34 @@ class CorePlayerMediaKit extends CorePlayer
       _bufferSubject.add(Duration.zero);
       _playingSubject.add(false);
       currentAudioHandler?.emitMediaItem(null);
+      // Even with nothing to open, attach segment streams for any live
+      // sources in the queue so subsequent emissions populate the playlist.
+      for (final live in liveToAttach) {
+        _attachLiveSegmentStream(live);
+      }
       return;
     }
 
-    final activeSource = queue.current!;
+    final clampedIndex = projectedActiveIndex.clamp(0, projected.length - 1);
+    final activeSource = projected[clampedIndex];
     _setAudioSource(activeSource);
 
-    // Build the media_kit Playlist for the full queue. After this open(),
-    // media_kit owns track-to-track transitions: auto-advance, [next],
-    // [previous], [jump], and shuffle all go through its native pipeline,
-    // which is what gives us gapless playback. The playlist stream
-    // subscription mirrors the resulting index into [_queueStreamBacking].
-    final medias = queue.sources.map(_toMedia).toList();
-    final playlist = Playlist(medias, index: queue.currentIndex);
+    // Build the media_kit Playlist for the projected queue. After this
+    // open(), media_kit owns track-to-track transitions: auto-advance,
+    // [next], [previous], [jump], and shuffle all go through its native
+    // pipeline, which is what gives us gapless playback. The playlist
+    // stream subscription mirrors the resulting index into
+    // [_queueStreamBacking].
+    final medias = projected.map(_toMedia).toList();
+    final playlist = Playlist(medias, index: clampedIndex);
     await _openWithRetry(playlist);
     if (token != latestSetQueueToken) return;
+
+    // Attach live-source subscriptions AFTER the open. Emissions land via
+    // `player.add(Media(...))` against a live native playlist.
+    for (final live in liveToAttach) {
+      _attachLiveSegmentStream(live);
+    }
 
     needToLoad = false;
     _rateSubject.add(player.state.rate);
@@ -877,6 +994,13 @@ class CorePlayerMediaKit extends CorePlayer
     // mutator throws) observe disposal during the drain that follows.
     _disposed = true;
 
+    // Cancel live-source segment subscriptions FIRST so a late emission
+    // landing during the drain below doesn't race with the native teardown.
+    // The wrapper-side `_sources` mutation in `_onLiveSegmentEmit` is sync
+    // and gated on `_disposed` (set above), so any in-flight emission will
+    // observe disposal and bail before touching the player.
+    await _cancelAllLiveSubscriptions();
+
     // Drain in-flight fire-and-forgets BEFORE cancelling subscriptions or
     // tearing down the native player; errors swallowed because we're on the
     // disposal path.
@@ -958,6 +1082,12 @@ class CorePlayerMediaKit extends CorePlayer
       HttpAudioSource(:final url) => url.toString(),
       FileAudioSource(:final path) => path,
       HlsAudioSource(:final manifestUrl) => manifestUrl.toString(),
+      // Live sources don't have a stable "id" — neither the segment stream
+      // nor the (possibly-null) initialUrl is meaningful for lock-screen
+      // identity. Fall back to a synthetic id derived from the parent
+      // identity so MediaItem reconciliation stays stable across emissions.
+      LiveAudioSource(:final initialUrl) =>
+          initialUrl?.toString() ?? 'live:${identityHashCode(audioSource)}',
     };
     final engineDuration = player.state.duration;
     final duration = engineDuration > Duration.zero

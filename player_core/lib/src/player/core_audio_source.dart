@@ -48,13 +48,23 @@ sealed class CoreAudioSource extends Equatable {
   Map<String, Object?> toJson();
 
   /// Discriminator-driven dispatch. Unknown `type` values reject with
-  /// [SnapshotMalformedFailure]. Faz S3 extends this switch with `'live'`.
+  /// [SnapshotMalformedFailure].
+  ///
+  /// `'live'` is a defined-but-unrestorable discriminator: a snapshot that
+  /// contains a [LiveAudioSource] cannot round-trip because the segment
+  /// stream is process-local state. We reject with [SnapshotMalformedFailure]
+  /// at this seam (rather than at the value-class level) so the queue-level
+  /// restore loop sees a single, structurally-uniform failure shape across
+  /// every "unrestorable" subtype.
   factory CoreAudioSource.fromJson(Map<String, Object?> json) {
     final type = json[kCoreAudioSourceTypeKey];
     return switch (type) {
       'http' => HttpAudioSource.fromJson(json),
       'file' => FileAudioSource.fromJson(json),
       'hls' => HlsAudioSource.fromJson(json),
+      'live' => throw const SnapshotMalformedFailure(
+        'LiveAudioSource entries cannot be restored from a snapshot',
+      ),
       _ => throw SnapshotMalformedFailure(
         'Unknown CoreAudioSource type: $type',
       ),
@@ -196,7 +206,7 @@ final class FileAudioSource extends CoreAudioSource {
 /// Use this for live radio, podcasts published via HLS, and any source where
 /// the upstream serves byte-range-friendly HLS over HTTP. Single-URI
 /// progressive HTTP audio stays on [HttpAudioSource]; pure segment-append
-/// scenarios (no upstream manifest) ship in Faz S3 as `LiveAudioSource`.
+/// scenarios (no upstream manifest) use [LiveAudioSource] below.
 ///
 /// Kept as a peer of [HttpAudioSource] rather than a subclass: the sealed
 /// dispatch is per-transport (manifest vs progressive) so callers can pattern
@@ -274,4 +284,83 @@ final class HlsAudioSource extends CoreAudioSource {
       headers: typedHeaders,
     );
   }
+}
+
+/// Live audio source whose segments arrive over time via a stream of URLs.
+/// The wrapper subscribes to [segmentUrlStream] and appends each emitted URL
+/// to the active playlist as a sibling [HttpAudioSource]-like entry.
+/// media_kit's native [Playlist] primitive provides gapless transitions
+/// between successive segments.
+///
+/// Use case: streaming-while-generating UX where the upstream backend emits
+/// one URL per finished segment (AI-generated music chunks, on-the-fly TTS
+/// sections, anything where segments become ready asynchronously).
+///
+/// Contract:
+/// - [segmentUrlStream] MUST be a single-subscription stream — the wrapper
+///   subscribes exactly once. Use a backing [StreamController] + `addStream`
+///   if you need to merge multiple producers.
+/// - The stream MUST eventually close. The wrapper uses `done` to mark the
+///   live source as exhausted, after which the normal `onQueueExhausted`
+///   lifecycle takes over.
+/// - The stream MAY emit before the source becomes the active queue entry
+///   (segments pre-buffered ahead of play time).
+/// - [headers] are attached to every emitted URL — per-segment headers are
+///   out of scope for v1.
+///
+/// Serialization: [toJson] throws [UnsupportedError]. A live segment stream
+/// is process-local state, not durable data; consumers persisting queues
+/// must filter or recreate live entries from app state on restore.
+final class LiveAudioSource extends CoreAudioSource {
+  const LiveAudioSource({
+    required this.segmentUrlStream,
+    required super.title,
+    super.artist,
+    super.artUri,
+    super.estimatedDuration,
+    this.headers,
+    this.initialUrl,
+  });
+
+  /// Stream of segment URLs to play in arrival order. Single-subscription;
+  /// the wrapper subscribes once when the live source enters the queue.
+  final Stream<Uri> segmentUrlStream;
+
+  /// Headers attached to each segment's HTTP request. Common case: an auth
+  /// bearer token for a backend that gates segment URLs.
+  final Map<String, String>? headers;
+
+  /// Optional priming URL: when non-null, the wrapper begins playback on
+  /// this URL immediately (in parallel with subscribing to
+  /// [segmentUrlStream]). Useful when the first segment is already known
+  /// (e.g. a quick prelude file) and the stream starts emitting later
+  /// segments after a delay.
+  ///
+  /// When null, the wrapper waits for the first emission from
+  /// [segmentUrlStream] before issuing `player.open(...)`.
+  final Uri? initialUrl;
+
+  @override
+  List<Object?> get props => [
+    // Streams are uncomparable by value — fall back to identity so two
+    // distinct LiveAudioSource instances pointing at the same controller
+    // compare equal while two with different controllers do not.
+    identityHashCode(segmentUrlStream),
+    title,
+    artist,
+    artUri,
+    estimatedDuration,
+    headers,
+    initialUrl,
+  ];
+
+  /// Live segments are process-local — serialising one would resurrect a
+  /// stream that no longer has a producer. Callers that snapshot a queue
+  /// containing a [LiveAudioSource] MUST either filter live entries before
+  /// serialising or surface a clear failure to the user.
+  @override
+  Map<String, Object?> toJson() => throw UnsupportedError(
+    'LiveAudioSource cannot be serialized. Live segment streams are '
+    'process-local; recreate the source from your app state on restore.',
+  );
 }
