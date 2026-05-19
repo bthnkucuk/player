@@ -11,6 +11,7 @@ import 'demos/live_audio_source.dart';
 import 'demos/raw_media_kit.dart';
 import 'demos/multi_scope.dart';
 import 'demos/observer.dart';
+import 'demos/playback_events.dart';
 import 'demos/playlist.dart';
 import 'demos/queue_mutation.dart';
 import 'demos/resume_from_cold_start.dart';
@@ -163,6 +164,14 @@ class HomePage extends StatelessWidget {
       icon: Icons.stream,
       builder: _buildLiveAudioSource,
     ),
+    _Demo(
+      title: 'Playback events',
+      subtitle:
+          'typed playbackEventStream — analytics-driven app feed (royalty, '
+          'skip-rate, listen-time)',
+      icon: Icons.timeline,
+      builder: _buildPlaybackEvents,
+    ),
   ];
 
   static Widget _buildSingleTrack(BuildContext _) => const SingleTrackDemo();
@@ -180,6 +189,8 @@ class HomePage extends StatelessWidget {
   static Widget _buildHls(BuildContext _) => const HlsDemo();
   static Widget _buildLiveAudioSource(BuildContext _) =>
       const LiveAudioSourceDemo();
+  static Widget _buildPlaybackEvents(BuildContext _) =>
+      const PlaybackEventsDemo();
 
   @override
   Widget build(BuildContext context) {
