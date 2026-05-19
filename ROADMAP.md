@@ -27,8 +27,8 @@ Production-grade audio wrapper plan for `player_core` + `audio_player`.
 ## Phase 1 — P0 thinness/properness fixes
 
 ### Sil / kapat
-- [ ] **Delete back-compat statics on `CoreAudioHandler`** — `attachPlayer` / `detachPlayer` / `attachedPlayers` / `currentPlayer` / `isCurrentPlayer` at `player_core/lib/src/player/tu_audio_handler.dart:478-505`. No v1 history to preserve.
-- [ ] **Decide `CoreAudioHandlerAppResumeEvent`** at `tu_audio_handler.dart:114`: wire a real consumer or delete. Currently dispatched, no consumer reads it.
+- [ ] **Delete back-compat statics on `CoreAudioHandler`** — `attachPlayer` / `detachPlayer` / `attachedPlayers` / `currentPlayer` / `isCurrentPlayer` at `player_core/lib/src/player/core_audio_handler.dart:478-505`. No v1 history to preserve.
+- [ ] **Decide `CoreAudioHandlerAppResumeEvent`** at `core_audio_handler.dart:114`: wire a real consumer or delete. Currently dispatched, no consumer reads it.
 - [ ] **Hide `CorePlayerMediaKit.player`** at `audio_player/lib/src/player/core_player_media_kit.dart:124`. Mark `@internal` or make private — leaks `media_kit.Player` and breaks backend-agnostic claim.
 - [ ] **Remove `alchemist`** dev dep + `flutter_test_config.dart` `ciGoldensConfig` wrappers (covered in Phase 0).
 - [ ] **`seek` snap thresholds** at `core_player_media_kit.dart:744-746`: either make `seekStartThreshold` / `seekEndThreshold` consumer-configurable via `CorePlayerConfiguration`, or remove the silent no-op (current behavior is a footgun).
@@ -37,7 +37,7 @@ Production-grade audio wrapper plan for `player_core` + `audio_player`.
 ### Test seam (testability blockers)
 - [ ] **Extract `MediaKitPlayerLike` interface** covering the subset of `media_kit.Player` the wrapper uses (`stream.position`, `stream.playlist`, `stream.playing`, `stream.completed`, `stream.volume`, `stream.rate`, `stream.buffer`, `open`, `play`, `pause`, `seek`, `next`, `previous`, `jump`, `dispose`, etc.). Unlocks state-machine + queue tests without libmpv. Highest single-change leverage.
 - [ ] **Simplify `_playerStateValue`** at `core_player_media_kit.dart:221-242`. Drop `combineLatest5 + buffer>position` heuristic; derive `CorePlayerState` directly from `playing` + `completed` + opening flag + error. Heuristic flaky, hard to unit-test deterministically.
-- [ ] **Surface bridge init failure** as a typed `bridgeInitStatus` getter/stream at `tu_audio_service_bridge.dart:110-117, 163-171`. Current silent swallow means lock-screen can quietly not work and the consumer never knows.
+- [ ] **Surface bridge init failure** as a typed `bridgeInitStatus` getter/stream at `core_audio_service_bridge.dart:110-117, 163-171`. Current silent swallow means lock-screen can quietly not work and the consumer never knows.
 
 ---
 
@@ -75,11 +75,11 @@ Author-flagged in `TEST_QUALITY_REPORT.md`:
 - [ ] `_openWithRetry` backoff schedule — pin `maxBackoff` clamp + `backoffMultiplier` accumulation
 
 Discovered in review:
-- [ ] `_onAppResumed` `_interruptedWhilePlaying=false` branch (`tu_audio_service_bridge.dart:347-360`)
-- [ ] `refreshMediaItemForActiveScope` non-`CorePlayerMediaKit` branch (`tu_audio_service_bridge.dart:530-543`)
-- [ ] `onTaskRemoved` ordering (`tu_audio_handler.dart:528-555`)
+- [ ] `_onAppResumed` `_interruptedWhilePlaying=false` branch (`core_audio_service_bridge.dart:347-360`)
+- [ ] `refreshMediaItemForActiveScope` non-`CorePlayerMediaKit` branch (`core_audio_service_bridge.dart:530-543`)
+- [ ] `onTaskRemoved` ordering (`core_audio_handler.dart:528-555`)
 - [ ] `_playbackStateValue` MediaItem-duration patch (`core_player_media_kit.dart:894-899`) — lock-screen progress-bar fix path
-- [ ] Multi-scope `requestActiveSession` gate when not active scope (`tu_audio_handler.dart:438-441`)
+- [ ] Multi-scope `requestActiveSession` gate when not active scope (`core_audio_handler.dart:438-441`)
 - [ ] `setQueue` single-flight (currently can interleave concurrent calls)
 
 ### Properness fixes
@@ -105,7 +105,7 @@ Set up `audio_player/example/integration_test/` with patrol. PR-blocker subset f
 | 4 | Headphone unplug → wrapper pauses within 500ms | `single_track.dart` | `audio_session.becomingNoisyEventStream` |
 | 5 | Phone-call sim begin/end → pauses; resumes per config | `single_track.dart` | `audio_session` interruption + `_interruptedWhilePlaying` |
 | 6 | Backgrounded → foreground notification visible 10s later, plays through | `single_track.dart` | `androidNotificationOngoing` + background playback |
-| 7 | Cold start with YouTube holding MediaSession → our seed displaces it | `single_track.dart` | `tu_audio_service_bridge.dart:192-202` seed workaround |
+| 7 | Cold start with YouTube holding MediaSession → our seed displaces it | `single_track.dart` | `core_audio_service_bridge.dart:192-202` seed workaround |
 | 8 | Multi-scope: two players, transfer focus, lock-screen MediaItem swaps | `multi_scope.dart` | `requestSystemAudioFocus` + `refreshMediaItemForActiveScope` |
 | 9 | Hot-restart while playing → second `main()` doesn't crash | `single_track.dart` | `ensureInitialized` / `AudioService.init` idempotency |
 | 10 | `loadAndPlay` double-tapped 50ms apart → only one native open | `single_track.dart` | `_inFlightLoadAndPlay` coalescing |
@@ -242,13 +242,13 @@ These belong to upstream libs, not the wrapper:
 ## Source files (reference)
 
 - `player_core/lib/src/player/player_core.dart`
-- `player_core/lib/src/player/tu_audio_handler.dart`
+- `player_core/lib/src/player/core_audio_handler.dart`
 - `player_core/lib/src/config/player_core_configuration.dart`
 - `player_core/lib/src/queue/player_core_queue.dart`
 - `player_core/lib/src/observer/player_core_observer.dart`
 - `player_core/lib/src/failures/player_core_failure.dart`
 - `audio_player/lib/src/player/core_player_media_kit.dart`
-- `audio_player/lib/src/player/tu_audio_service_bridge.dart`
+- `audio_player/lib/src/player/core_audio_service_bridge.dart`
 - `player_core/TEST_QUALITY_REPORT.md`
 - `audio_player/TEST_QUALITY_REPORT.md`
 - `audio_player/TESTING.md`

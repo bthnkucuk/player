@@ -1,5 +1,5 @@
 name: player_core
-description: "Abstraction layer for an audio player wrapper used across ire apps. Backend-agnostic; pair with audio_player for the media_kit-based implementation."
+description: "Backend-agnostic abstraction layer for a Flutter audio player wrapper. Pair with audio_player for the media_kit-based implementation."
 version: 0.8.4
 homepage:
 

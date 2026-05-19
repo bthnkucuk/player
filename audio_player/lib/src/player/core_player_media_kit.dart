@@ -130,7 +130,7 @@ class CorePlayerMediaKit extends CorePlayer {
   /// Centralised log dispatch. Routes through the configured
   /// [CorePlayerConfiguration.logCallback] when present, falling back to
   /// `dart:developer`'s `log` otherwise. Public so the sibling
-  /// `tu_audio_service_bridge.dart` can reuse the same indirection.
+  /// `core_audio_service_bridge.dart` can reuse the same indirection.
   @internal
   static void log(String message, {Object? error, StackTrace? stackTrace, String? name}) {
     final cb = _configuration.logCallback;
