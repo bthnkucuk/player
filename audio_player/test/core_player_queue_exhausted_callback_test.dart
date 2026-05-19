@@ -340,6 +340,60 @@ void main() {
     );
 
     test(
+      'auto-radio append leaves _sources mutable: subsequent appendToQueue '
+      'does not throw UnsupportedOperationError',
+      () async {
+        // Regression for a latent integration bug: an earlier draft of the
+        // auto-radio path reassigned `_sources` to `List.unmodifiable(...)`
+        // after the append. That bricked every Faz Q1 mutation
+        // (appendToQueue / insertNext / removeAt / moveItem / replaceAt)
+        // for the remainder of the player's life. The fix routes the
+        // append through `_appendAllLocked` so both paths share the
+        // single growable-list invariant.
+        final extra = [
+          CorePlayerAudioSource(
+            title: 'auto-1',
+            url: 'https://example.com/auto-1.mp3',
+          ),
+        ];
+        CorePlayerMediaKit.debugSetConfigurationForTest(
+          CorePlayerConfiguration(
+            internalPositionThrottle: Duration.zero,
+            onQueueExhausted: () async => extra,
+          ),
+        );
+        player = CorePlayerMediaKit(testPlayer: mockPlayer);
+        await primeQueue(1);
+        await setActiveIndex(0, length: 1);
+
+        h.completed.add(true);
+        for (var i = 0; i < 10; i++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        // Simulate the post-jump playlist emission so the projected queue
+        // sees the new length (mirrors the previous test's pattern).
+        h.playlist.add(
+          Playlist(
+            List.generate(2, (_) => Media('https://example.com/x.mp3')),
+            index: 1,
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        // Now the user issues an unrelated Q1 mutation. With the unmodifiable
+        // regression, this throws `Unsupported operation: Cannot add to an
+        // unmodifiable list`.
+        await player.appendToQueue(
+          CorePlayerAudioSource(
+            title: 'user-added',
+            url: 'https://example.com/user-added.mp3',
+          ),
+        );
+        // No exception → invariant preserved.
+      },
+    );
+
+    test(
       'rapid duplicate completed=true ticks fire the callback exactly once',
       () async {
         var callCount = 0;

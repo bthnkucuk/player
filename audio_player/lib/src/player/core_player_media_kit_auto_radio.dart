@@ -72,31 +72,24 @@ extension _CorePlayerMediaKitAutoRadio on CorePlayerMediaKit {
   }
 
   /// Append [sources] to the active queue and advance to the first
-  /// appended item. Implemented directly against `media_kit.Player.add` so
-  /// it does NOT collide with Faz Q1's public `appendToQueue` work in
-  /// progress on a parallel branch — when Q1 lands, this can be replaced
-  /// with a call to the public method.
+  /// appended item. Delegates the per-source `player.add` + wrapper-side
+  /// `_sources.add` to the Faz Q1 queue-mutation helper [_appendAllLocked]
+  /// so both paths share a single growable-list invariant — the auto-radio
+  /// flow must never reassign `_sources` to an unmodifiable list (would
+  /// brick all later [appendToQueue]/[insertNext]/[removeAt] calls).
   ///
   /// Holds [queueLock] for the whole operation so a concurrent [setQueue]
-  /// does not interleave with the auto-radio append. Native verbs go
-  /// through [runOnNative] to serialize against in-flight seek/play/etc.
+  /// does not interleave with the auto-radio append, and the post-append
+  /// `jump` + `play` happen against the freshly-extended queue.
   Future<void> _appendForAutoRadio(List<CorePlayerAudioSource> sources) {
     return runOnQueue(() async {
       if (_disposed) return;
       if (_sources.isEmpty) return;
-      // Pre-compute the next index BEFORE adding so we know where to
-      // jump after the native append completes.
+      // Snapshot the pre-append length so we know where to jump once
+      // [_appendAllLocked] has grown the queue.
       final firstAppendedIndex = _sources.length;
-      final merged = <CorePlayerAudioSource>[..._sources, ...sources];
-      _sources = List.unmodifiable(merged);
-      for (final src in sources) {
-        if (_disposed) return;
-        final media = _toMedia(src);
-        await runOnNative(() => player.add(media));
-      }
+      await _appendAllLocked(sources);
       if (_disposed) return;
-      // Jump to the first appended item. media_kit's playlist subscription
-      // will mirror the index back through [_queueStreamBacking].
       await runOnNative(() => player.jump(firstAppendedIndex));
       await runOnNative(() => player.play());
     });
