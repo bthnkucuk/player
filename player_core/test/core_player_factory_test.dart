@@ -179,4 +179,11 @@ class _FakeCorePlayer extends CorePlayer {
   Future<void> dispose() async {}
   @override
   Future<void> waitForReady({Duration? timeout}) async {}
+  @override
+  Future<void> notifyNetworkHint(NetworkHint hint) async {}
+  @override
+  NetworkHint get currentNetworkHint => NetworkHint.unmetered;
+  @override
+  Stream<NetworkHint> get networkHintStream =>
+      const Stream<NetworkHint>.empty();
 }

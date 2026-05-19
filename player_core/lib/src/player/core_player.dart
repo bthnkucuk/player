@@ -6,6 +6,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:player_core/src/failures/core_player_failure.dart';
 import 'package:player_core/src/observer/core_player_observer.dart';
 import 'package:player_core/src/player/core_audio_handler.dart';
+import 'package:player_core/src/player/core_network_hint.dart';
 import 'package:player_core/src/player/core_player_capabilities.dart';
 import 'package:player_core/src/queue/core_player_queue.dart';
 
@@ -335,6 +336,23 @@ abstract class CorePlayer {
   /// Also fires on async errors surfaced via `player.stream.error`
   /// (e.g. mid-stream network drops) as synthetic [LoadFailure]s.
   Stream<CorePlayerFailure> get errorStream;
+
+  /// Notify the wrapper of a connectivity change. The wrapper applies the
+  /// configured [NetworkPolicy] — auto-pauses or auto-resumes as
+  /// appropriate. Calling with the same [hint] twice in a row is a no-op
+  /// (idempotent).
+  ///
+  /// The wrapper does NOT subscribe to platform-side connectivity events;
+  /// the consumer must call this from their connectivity listener.
+  Future<void> notifyNetworkHint(NetworkHint hint);
+
+  /// Most recent hint pushed via [notifyNetworkHint]. Defaults to
+  /// [NetworkHint.unmetered] until a hint arrives.
+  NetworkHint get currentNetworkHint;
+
+  /// Stream of hint changes. Useful for UI that displays connectivity
+  /// status without owning the connectivity source.
+  Stream<NetworkHint> get networkHintStream;
 
   Future<void> stop({bool fromDispose = false});
 

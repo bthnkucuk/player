@@ -21,6 +21,7 @@ part 'core_player_media_kit_mutation.dart';
 part 'core_player_media_kit_capabilities.dart';
 part 'core_player_media_kit_live.dart';
 part 'core_player_media_kit_equalizer.dart';
+part 'core_player_media_kit_network.dart';
 
 /// Position-restoration SLA for [CorePlayerMediaKit.replaceAt] when
 /// `preservePosition: true` is requested for the active index. Buffer-aware
@@ -35,7 +36,8 @@ class CorePlayerMediaKit extends CorePlayer
         CorePlayerMediaKitNavigation,
         CorePlayerMediaKitPlayback,
         CorePlayerMediaKitMutation,
-        CorePlayerMediaKitLive {
+        CorePlayerMediaKitLive,
+        CorePlayerMediaKitNetwork {
   /// Seeks within this distance of the start are snapped to zero
   /// (avoids triggering a buffer flush for cosmetic micro-seeks).
   static const Duration seekStartThreshold = Duration(milliseconds: 300);
@@ -1094,6 +1096,7 @@ class CorePlayerMediaKit extends CorePlayer
     await _playerErrorSubject.close();
     await _playerStateSubject.close();
     await _positionDataSubject.close();
+    await _networkHintSubject.close();
     await _errorController.close();
 
     // 4. Notify observer (after local resources are closed; before native
