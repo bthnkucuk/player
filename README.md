@@ -1,7 +1,7 @@
 # player
 
 [![CI](https://github.com/bthnkucuk/player/actions/workflows/ci.yml/badge.svg)](https://github.com/bthnkucuk/player/actions/workflows/ci.yml)
-![coverage](https://img.shields.io/badge/coverage-83.3%25-brightgreen)
+![coverage](https://img.shields.io/badge/coverage-83.0%25-brightgreen)
 
 Production-grade audio playback for Flutter — a thin, testable wrapper over [media_kit](https://pub.dev/packages/media_kit), [audio_service](https://pub.dev/packages/audio_service), and [audio_session](https://pub.dev/packages/audio_session).
 
