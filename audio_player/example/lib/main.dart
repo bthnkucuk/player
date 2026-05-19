@@ -3,6 +3,7 @@ import 'package:talker_flutter/talker_flutter.dart';
 import 'package:player_core/player_core.dart';
 import 'package:audio_player/audio_player.dart';
 
+import 'demos/auto_radio_and_position_stream.dart';
 import 'demos/debug_logs.dart';
 import 'demos/raw_media_kit.dart';
 import 'demos/multi_scope.dart';
@@ -118,6 +119,13 @@ class HomePage extends StatelessWidget {
       icon: Icons.science,
       builder: _buildRawMediaKit,
     ),
+    _Demo(
+      title: 'Auto-radio + position stream',
+      subtitle:
+          'positionDataStream-fed scrubber + onQueueExhausted append callback',
+      icon: Icons.radio,
+      builder: _buildAutoRadio,
+    ),
   ];
 
   static Widget _buildSingleTrack(BuildContext _) => const SingleTrackDemo();
@@ -126,6 +134,8 @@ class HomePage extends StatelessWidget {
   static Widget _buildObserver(BuildContext _) => const ObserverDemo();
   static Widget _buildDebugLogs(BuildContext _) => const DebugLogsDemo();
   static Widget _buildRawMediaKit(BuildContext _) => const RawMediaKitDemo();
+  static Widget _buildAutoRadio(BuildContext _) =>
+      const AutoRadioAndPositionStreamDemo();
 
   @override
   Widget build(BuildContext context) {
