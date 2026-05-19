@@ -104,7 +104,7 @@ void main() {
 
       // Silence the unrelated libmpv options applier so the constructor's
       // fire-and-forget property push doesn't touch the real applier.
-      debugSetLibmpvOptionsApplierForTest((_, __) async {});
+      debugSetLibmpvOptionsApplierForTest((_, _) async {});
 
       capturedSpecs = <String>[];
       debugSetEqualizerApplierForTest((player, spec) async {
