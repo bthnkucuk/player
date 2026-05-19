@@ -10,10 +10,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:player_core/player_core.dart';
 import 'package:audio_player/src/player/core_audio_service_bridge.dart';
+import 'package:audio_player/src/player/core_player_media_kit_concurrency.dart';
 
 part 'core_player_media_kit_libmpv.dart';
 
-class CorePlayerMediaKit extends CorePlayer {
+class CorePlayerMediaKit extends CorePlayer with CorePlayerMediaKitConcurrency {
   /// Seeks within this distance of the start are snapped to zero
   /// (avoids triggering a buffer flush for cosmetic micro-seeks).
   static const Duration seekStartThreshold = Duration(milliseconds: 300);
@@ -503,7 +504,7 @@ class CorePlayerMediaKit extends CorePlayer {
   Future<void> setVolume(double volume) async {
     if (_disposed) _throwAndEmit(const PlayerDisposedFailure());
     final clamped = volume.clamp(0.0, 1.0);
-    await player.setVolume(clamped * 100); // media_kit uses 0-100 scale
+    await runOnNative(() => player.setVolume(clamped * 100)); // media_kit uses 0-100 scale
     _volumeSubject.add(clamped);
   }
 
@@ -525,7 +526,7 @@ class CorePlayerMediaKit extends CorePlayer {
       case CorePlayerLoopMode.all:
         native = PlaylistMode.loop;
     }
-    await player.setPlaylistMode(native);
+    await runOnNative(() => player.setPlaylistMode(native));
     _loopModeSubject.add(mode);
   }
 
@@ -535,7 +536,7 @@ class CorePlayerMediaKit extends CorePlayer {
       _throwAndEmit(const PlayerDisposedFailure());
     }
     try {
-      await player.setRate(speed);
+      await runOnNative(() => player.setRate(speed));
     } catch (e) {
       _throwAndEmit(PlaybackSpeedFailure('Failed to set speed $speed', cause: e));
     }
@@ -592,6 +593,15 @@ class CorePlayerMediaKit extends CorePlayer {
     if (_disposed) {
       _throwAndEmit(const PlayerDisposedFailure());
     }
+    return runOnQueue(() => _setQueueLocked(queue, nextSetQueueToken()));
+  }
+
+  /// Body of [setQueue] executed while holding [queueLock]. [token] is the
+  /// generation captured at the public entry point; checked after each
+  /// `await` so a superseded call abandons its observable writes instead of
+  /// overwriting the active caller's state (Faz H bug #1).
+  Future<void> _setQueueLocked(CorePlayerQueue queue, int token) async {
+    if (_disposed) return;
     _playerErrorSubject.add(null);
 
     // Mutate the parallel typed-source list FIRST. The playlist stream
@@ -604,7 +614,8 @@ class CorePlayerMediaKit extends CorePlayer {
 
     if (queue.isEmpty) {
       _setAudioSource(null);
-      await player.stop();
+      await runOnNative(() => player.stop());
+      if (token != latestSetQueueToken) return;
       _queueStreamBacking.add(const CorePlayerQueue.empty());
       _durationSubject.add(Duration.zero);
       _positionSubject.add(Duration.zero);
@@ -625,6 +636,7 @@ class CorePlayerMediaKit extends CorePlayer {
     final medias = queue.sources.map(_toMedia).toList();
     final playlist = Playlist(medias, index: queue.currentIndex);
     await _openWithRetry(playlist);
+    if (token != latestSetQueueToken) return;
 
     needToLoad = false;
     _rateSubject.add(player.state.rate);
@@ -663,7 +675,7 @@ class CorePlayerMediaKit extends CorePlayer {
       // grab focus during the momentary teardown. Mirrors play().
       await audioHandler?.requestActiveSession();
     }
-    await player.next();
+    await runOnNative(() => player.next());
     if (wasPlaying) {
       // Idempotent post-jump re-activation: claw the session back if iOS
       // handed it away during the AU swap, before libmpv resumes output.
@@ -690,7 +702,7 @@ class CorePlayerMediaKit extends CorePlayer {
       // AudioUnit swap so a contested app can't grab focus mid-switch.
       await audioHandler?.requestActiveSession();
     }
-    await player.previous();
+    await runOnNative(() => player.previous());
     if (wasPlaying) {
       // Idempotent post-jump re-activation.
       await audioHandler?.requestActiveSession();
@@ -711,7 +723,7 @@ class CorePlayerMediaKit extends CorePlayer {
       // AudioUnit swap so a contested app can't grab focus mid-switch.
       await audioHandler?.requestActiveSession();
     }
-    await player.jump(index);
+    await runOnNative(() => player.jump(index));
     if (wasPlaying) {
       // Idempotent post-jump re-activation.
       await audioHandler?.requestActiveSession();
@@ -729,7 +741,7 @@ class CorePlayerMediaKit extends CorePlayer {
     if (_disposed) {
       _throwAndEmit(const PlayerDisposedFailure());
     }
-    await player.setShuffle(enabled);
+    await runOnNative(() => player.setShuffle(enabled));
     _shuffleSubject.add(enabled);
   }
 
@@ -744,7 +756,7 @@ class CorePlayerMediaKit extends CorePlayer {
     while (true) {
       attempt++;
       try {
-        await player.open(playable, play: false);
+        await runOnNative(() => player.open(playable, play: false));
         return;
       } on Object catch (e) {
         if (attempt >= retry.maxAttempts) {
@@ -798,14 +810,12 @@ class CorePlayerMediaKit extends CorePlayer {
     }
 
     if (position != null) {
-      await player.seek(position);
+      await runOnNative(() => player.seek(position));
     }
 
-    await player.play();
+    await runOnNative(() => player.play());
     CorePlayer.observer?.onPlay(this);
   }
-
-  Future<void>? _inFlightLoadAndPlay;
 
   @override
   Future<void> loadAndPlay(CorePlayerAudioSource audioSource) {
@@ -815,23 +825,17 @@ class CorePlayerMediaKit extends CorePlayer {
       // `Future<void>` so a sync throw still surfaces via the Future).
       _throwAndEmit(const PlayerDisposedFailure());
     }
-    final existing = _inFlightLoadAndPlay;
-    if (existing != null) return existing;
-    final future = _doLoadAndPlay(audioSource);
-    _inFlightLoadAndPlay = future;
-    // Clear the slot once this in-flight call settles (success or failure) so
-    // the next invocation runs fresh. `whenComplete` runs after listeners.
-    future.whenComplete(() {
-      if (identical(_inFlightLoadAndPlay, future)) {
-        _inFlightLoadAndPlay = null;
-      }
-    });
-    return future;
+    return runOnQueue(() => _doLoadAndPlay(audioSource, nextSetQueueToken()));
   }
 
-  Future<void> _doLoadAndPlay(CorePlayerAudioSource audioSource) async {
+  Future<void> _doLoadAndPlay(CorePlayerAudioSource audioSource, int token) async {
+    if (_disposed) return;
     await stop();
-    await load(audioSource);
+    if (token != latestSetQueueToken || _disposed) return;
+    // Call _setQueueLocked directly to avoid re-entering queueLock (we
+    // already hold it). load() -> setQueue() would deadlock here.
+    await _setQueueLocked(CorePlayerQueue.single(audioSource), token);
+    if (token != latestSetQueueToken || _disposed) return;
     await play();
   }
 
@@ -840,7 +844,7 @@ class CorePlayerMediaKit extends CorePlayer {
     if (_disposed) {
       _throwAndEmit(const PlayerDisposedFailure());
     }
-    await player.pause();
+    await runOnNative(() => player.pause());
     CorePlayer.observer?.onPause(this);
   }
 
@@ -867,9 +871,11 @@ class CorePlayerMediaKit extends CorePlayer {
       // (_seekByPercent) for the full rationale. `as dynamic` is required
       // because NativePlayer is a stub on web without `command()`.
       final double pct = (positionToSeek.inMilliseconds / dur.inMilliseconds * 100).clamp(0.0, 100.0);
-      await (platform as dynamic).command(['seek', pct.toString(), 'absolute-percent+keyframes']);
+      await runOnNative(() async {
+        await (platform as dynamic).command(['seek', pct.toString(), 'absolute-percent+keyframes']);
+      });
     } else {
-      await player.seek(positionToSeek);
+      await runOnNative(() => player.seek(positionToSeek));
     }
     CorePlayer.observer?.onSeek(this, positionToSeek);
   }
@@ -883,10 +889,10 @@ class CorePlayerMediaKit extends CorePlayer {
     needToLoad = true;
 
     if (!fromDispose) {
-      await player.seek(Duration.zero);
-      await player.pause();
+      await runOnNative(() => player.seek(Duration.zero));
+      await runOnNative(() => player.pause());
     } else {
-      await player.stop();
+      await runOnNative(() => player.stop());
     }
     currentAudioHandler?.emitPlaybackState(PlaybackState());
     currentAudioHandler?.emitMediaItem(null);
@@ -992,7 +998,7 @@ class CorePlayerMediaKit extends CorePlayer {
     CorePlayer.observer?.onDispose(this);
 
     // 5. Dispose the native player.
-    await player.dispose();
+    await runOnNative(() => player.dispose());
 
     // 6. Detach from the handler last so currentAudioHandler? lookups inside
     //    stop() still resolve correctly above. Detach from OUR scope, not

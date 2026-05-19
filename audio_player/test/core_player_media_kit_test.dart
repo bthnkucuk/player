@@ -1378,9 +1378,9 @@ void main() {
       );
     });
 
-    group('loadAndPlay — single-flight (Bug 3)', () {
+    group('loadAndPlay — queueLock serialization (Faz H)', () {
       test(
-        'coalesces concurrent invocations to a single open() call',
+        'concurrent invocations run sequentially under the queue lock',
         () async {
           final localPlayer = MockPlayer();
           final localStream = MockPlayerStream();
@@ -1388,12 +1388,16 @@ void main() {
           final localH = _StreamHarness();
           _wireMockStreams(localPlayer, localStream, localState, localH);
 
-          // Make open() slow so a second loadAndPlay arrives while the first is
-          // still in flight.
-          final openCompleter = Completer<void>();
+          // Make open() slow so a second loadAndPlay arrives while the first
+          // is still in flight. Both calls must serialize through queueLock.
+          final openCompleters = <Completer<void>>[];
           when(
             () => localPlayer.open(any(), play: any(named: 'play')),
-          ).thenAnswer((_) => openCompleter.future);
+          ).thenAnswer((_) {
+            final c = Completer<void>();
+            openCompleters.add(c);
+            return c.future;
+          });
 
           final p = CorePlayerMediaKit(testPlayer: localPlayer);
           final src = CorePlayerAudioSource(
@@ -1404,24 +1408,31 @@ void main() {
           final f1 = p.loadAndPlay(src);
           final f2 = p.loadAndPlay(src);
 
-          // Both futures should reference the same in-flight work.
-          expect(identical(f1, f2), isTrue);
+          // queueLock holds f2 until f1 releases. Only the first open() has
+          // fired so far; the second is queued behind the lock.
+          await Future<void>.delayed(Duration.zero);
+          expect(openCompleters.length, 1);
 
-          // Release open() so both complete.
-          openCompleter.complete();
+          openCompleters[0].complete();
+          // Yield so f1's setQueue body proceeds past its open() await and
+          // f2 can acquire the lock and trigger the second open().
+          await Future<void>.delayed(Duration.zero);
+          await Future<void>.delayed(Duration.zero);
+          expect(openCompleters.length, 2);
+          openCompleters[1].complete();
+
           await f1;
           await f2;
 
-          // Verify exactly ONE open() call survived the coalesce.
-          verify(() => localPlayer.open(any(), play: false)).called(1);
-          verify(() => localPlayer.play()).called(1);
+          verify(() => localPlayer.open(any(), play: false)).called(2);
+          verify(() => localPlayer.play()).called(2);
 
           await p.dispose();
           await localH.close();
         },
       );
 
-      test('a fresh call after the first settles is NOT coalesced', () async {
+      test('back-to-back sequential calls each run end-to-end', () async {
         final localPlayer = MockPlayer();
         final localStream = MockPlayerStream();
         final localState = MockPlayerState();
